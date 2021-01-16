@@ -74,3 +74,10 @@ RUN [ `echo $version-$module | grep -v '^2019.3.*-linux-il2cpp'` ] && exit 0 || 
   } > /usr/bin/unity-editor \
   && chmod +x /usr/bin/unity-editor
 
+# [2021.x-linux-il2cpp] lld
+RUN [ `echo $version-$module | grep -v '^2021.*-linux-il2cpp'` ] && exit 0 || : \
+  && apt-get -q update \
+  && apt-get -q install -y --no-install-recommends --allow-downgrades \
+    lld \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
