@@ -17,8 +17,11 @@ RUN wget --no-verbose -O /tmp/UnityHub.AppImage "https://public-cdn.cloud.unity3
  && mv /AppRun /opt/unity/UnityHub
 
 # Alias to "unity-hub" with default params
-RUN echo '#!/bin/bash\nxvfb-run -ae /dev/stdout /opt/unity/UnityHub --no-sandbox --headless "$@"' > /usr/bin/unity-hub \
- && chmod +x /usr/bin/unity-hub
+RUN { \
+        echo '#!/bin/bash'; \
+        echo 'xvfb-run -ae /dev/stdout /opt/unity/UnityHub --no-sandbox --headless "$@"'; \
+    } > /usr/bin/unity-hub \
+    && chmod +x /usr/bin/unity-hub
 
 # Accept
 RUN mkdir -p "/root/.config/Unity Hub" \

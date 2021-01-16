@@ -34,5 +34,8 @@ COPY --from=builder /opt/unity/editors/$version/ "$UNITY_PATH/"
 RUN echo $version > "$UNITY_PATH/version"
 
 # Alias to "unity-editor" with default params
-RUN echo '#!/bin/bash\nxvfb-run -ae /dev/stdout "$UNITY_PATH/Editor/Unity" -batchmode "$@"' > /usr/bin/unity-editor \
- && chmod +x /usr/bin/unity-editor
+RUN { \
+    echo '#!/bin/bash'; \
+    echo 'xvfb-run -ae /dev/stdout "$UNITY_PATH/Editor/Unity" -batchmode "$@"'; \
+  } > /usr/bin/unity-editor \
+  && chmod +x /usr/bin/unity-editor
