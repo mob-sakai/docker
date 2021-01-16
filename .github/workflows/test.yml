@@ -1,0 +1,238 @@
+# [Required secrets]
+#   UNITY_LICENSE: Contents of an Unity license file (*.ulf)
+name: Test
+
+on:
+  push:
+    paths:
+      - "**/Dockerfile"
+      - .github/workflows/test.yml
+      - reference-project/*
+  pull_request:
+    types:
+      - "opened"
+      - "synchronize"
+    paths:
+      - "**/Dockerfile"
+      - .github/workflows/test.yml
+      - reference-project/*
+
+jobs:
+  ###########################
+  #    Build base and hub   #
+  ###########################
+  base-and-hub:
+    name: Base and hub
+    runs-on: ubuntu-18.04
+    steps:
+      ###########################
+      #          Setup          #
+      ###########################
+      - uses: actions/checkout@v2
+      - uses: docker/setup-qemu-action@v1
+      - uses: docker/setup-buildx-action@v1
+        with:
+          driver: docker
+
+      ###########################
+      #   Build base and hub    #
+      ###########################
+      - name: Build base
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: base/Dockerfile
+          tags: base:dev
+      - name: Build hub
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: hub/Dockerfile
+          build-args: baseImage=base:dev
+          tags: hub:dev
+
+      ###########################
+      #   Save images for next  #
+      ###########################
+      - name: Save images for next
+        run: |
+          docker images
+          docker save -o base-and-hub.tar base:dev hub:dev
+      - uses: actions/upload-artifact@v2
+        with:
+          path: base-and-hub.tar
+
+  ###########################
+  #       Build editor      #
+  ###########################
+  editor:
+    needs: base-and-hub
+    name: Editor (${{ matrix.version }}, ${{ matrix.module }})
+    runs-on: ubuntu-18.04
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - 2018.3.14f1
+          - 2018.4.30f1
+          - 2019.1.14f1
+          - 2019.2.21f1
+          - 2019.3.15f1
+          - 2019.4.18f1
+          - 2020.1.17f1
+          - 2020.2.1f1
+          - 2021.1.0b2
+        module:
+          - base
+          - linux-il2cpp
+          - windows-mono
+          - mac-mono
+          - ios
+          - android
+          - webgl
+        exclude:
+          - version: 2018.3.14f1
+            module: linux-il2cpp
+          - version: 2018.4.30f1
+            module: linux-il2cpp
+          - version: 2019.1.14f1
+            module: linux-il2cpp
+          - version: 2019.2.21f1
+            module: linux-il2cpp
+
+    steps:
+      ###########################
+      #          Setup          #
+      ###########################
+      - uses: actions/checkout@v2
+      - uses: docker/setup-qemu-action@v1
+      - uses: docker/setup-buildx-action@v1
+        with:
+          driver: docker
+      - name: Free disk space
+        run: .github/workflows/scripts/free_disk_space.sh
+
+      ###########################
+      #   Restore base and hub  #
+      ###########################
+      - uses: actions/download-artifact@v2
+      - name: Restore base and hub
+        run: |
+          docker load -i artifact/base-and-hub.tar
+          rm -rf artifact
+
+      ###########################
+      #      Setup to build     #
+      ###########################
+      - name: Setup to build
+        run: |
+          # The changeset for unity version
+          echo "CHANGESET=`npx unity-changeset ${{ matrix.version }}`" >> $GITHUB_ENV
+
+          # Dockerfile to build
+          echo "DOCKER_FILE=editor/Dockerfile" >> $GITHUB_ENV
+
+      ###########################
+      #       Build editor      #
+      ###########################
+      - name: Build
+        # if: steps.build-1.outcome == 'failure'
+        uses: docker/build-push-action@v2
+        id: build-1
+        continue-on-error: true
+        timeout-minutes: 40
+        with:
+          context: .
+          file: ${{ env.DOCKER_FILE }}
+          build-args: |
+            baseImage=base:dev
+            hubImage=hub:dev
+            version=${{ matrix.version }}
+            changeSet=${{ env.CHANGESET }}
+            module=${{ matrix.module }}
+          tags: editor:dev
+
+      ###########################
+      #   Build editor (retry)  #
+      ###########################
+      - name: Sleep for retry
+        if: steps.build-1.outcome == 'failure'
+        run: sleep 120
+
+      - name: Build (Retry)
+        if: steps.build-1.outcome == 'failure'
+        uses: docker/build-push-action@v2
+        id: build-2
+        # continue-on-error: true
+        timeout-minutes: 40
+        with:
+          context: .
+          file: ${{ env.DOCKER_FILE }}
+          build-args: |
+            baseImage=base:dev
+            hubImage=hub:dev
+            version=${{ matrix.version }}
+            changeSet=${{ env.CHANGESET }}
+            module=${{ matrix.module }}
+          tags: editor:dev
+
+      ###########################
+      #      Setup to test      #
+      ###########################
+      - name: Show image size
+        run: docker images
+      - name: Setup to test
+        run: |
+          if [ "${{ matrix.module }}" = "base" ] ; then
+            echo "TARGET_PLATFORM=StandaloneLinux64" >> $GITHUB_ENV
+            echo "BUILD_TARGET=Linux64"              >> $GITHUB_ENV
+
+          elif [ "${{ matrix.module }}" = "windows-mono" ] ; then
+            echo "TARGET_PLATFORM=StandaloneWindows" >> $GITHUB_ENV
+            echo "BUILD_TARGET=Win64"                >> $GITHUB_ENV
+            
+          elif [ "${{ matrix.module }}" = "mac-mono" ] ; then
+            echo "TARGET_PLATFORM=StandaloneOSX"     >> $GITHUB_ENV
+            echo "BUILD_TARGET=OSXUniversal"         >> $GITHUB_ENV
+            
+          elif [ "${{ matrix.module }}" = "ios" ] ; then
+            echo "TARGET_PLATFORM=iOS"               >> $GITHUB_ENV
+            echo "BUILD_TARGET=iOS"                  >> $GITHUB_ENV
+            
+          elif [ "${{ matrix.module }}" = "android" ] ; then
+            echo "TARGET_PLATFORM=Android"           >> $GITHUB_ENV
+            echo "BUILD_TARGET=Android"              >> $GITHUB_ENV
+            
+          elif [ "${{ matrix.module }}" = "webgl" ] ; then
+            echo "TARGET_PLATFORM=WebGL"             >> $GITHUB_ENV
+            echo "BUILD_TARGET=WebGL"                >> $GITHUB_ENV
+            
+          elif [ "${{ matrix.module }}" = "linux-il2cpp" ] ; then
+            echo "TARGET_PLATFORM=StandaloneLinux64" >> $GITHUB_ENV
+            echo "BUILD_TARGET=Linux64"              >> $GITHUB_ENV
+            
+            # Switch script backend to il2cpp
+            mv -f reference-project/ProjectSettings/ProjectSettings_il2cpp.asset reference-project/ProjectSettings/ProjectSettings.asset
+          fi
+
+      ###########################
+      #        Tests        #
+      ###########################
+      - name: Build project
+        uses: game-ci/unity-builder@main
+        with:
+          unityVersion: ${{ matrix.version }}
+          customImage: editor:dev
+          projectPath: reference-project
+          targetPlatform: ${{ env.TARGET_PLATFORM }}
+          allowDirtyBuild: true
+
+      - name: Test project
+        uses: game-ci/unity-test-runner@main
+        with:
+          unityVersion: ${{ matrix.version }}
+          customImage: editor:dev
+          projectPath: reference-project
+          customParameters: -nographics -buildTarget ${{ env.TARGET_PLATFORM }}
