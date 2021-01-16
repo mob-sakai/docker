@@ -1,0 +1,29 @@
+{
+  "name": "@mob-sakai/docker",
+  "version": "0.0.0",
+  "description": "New series of CI-specialised docker images for Unity. Superseding the famous gableroux/unity3d images.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mob-sakai/docker.git"
+  },
+  "author": "mob-sakai <sakai861104@gmail.com> (https://github.com/mob-sakai)",
+  "release": {
+    "branches": [
+      "main",
+      {
+        "name": "beta",
+        "prerelease": true
+      },
+      {
+        "name": "alpha",
+        "prerelease": true
+      }
+    ],
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/github"
+    ]
+  }
+}
