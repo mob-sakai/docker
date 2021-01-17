@@ -24,6 +24,9 @@ jobs:
   base-and-hub:
     name: Base and hub
     runs-on: ubuntu-18.04
+    outputs:
+      versions: ${{ steps.setup.outputs.versions }}
+      excludes: ${{ steps.setup.outputs.excludes }}
     steps:
       ###########################
       #          Setup          #
@@ -62,6 +65,22 @@ jobs:
         with:
           path: base-and-hub.tar
 
+      ###########################
+      #    Setup build matrix   #
+      ###########################
+      - name: "Setup build matrix"
+        id: setup
+        run: |
+          # Get Unity versions for test. The versions are latest patch.
+          VERSIONS=`npx unity-changeset list --versions --latest-patch --json --min 2018.3`
+          echo "Versions: $VERSIONS"
+          echo "::set-output name=versions::$VERSIONS"
+
+          # Exclude linux-il2cpp for Unity 2019.2 or earlier
+          EXCLUDES="`npx unity-changeset list --versions --latest-patch --json --min 2018.3 --max 2019.2 | jq -c 'map({ version: ., module: \"linux-il2cpp\"})'`"
+          echo "Excludes: $EXCLUDES"
+          echo "::set-output name=excludes::$EXCLUDES"
+
   ###########################
   #       Build editor      #
   ###########################
@@ -74,16 +93,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - 2018.3.14f1
-          - 2018.4.30f1
-          - 2019.1.14f1
-          - 2019.2.21f1
-          - 2019.3.15f1
-          - 2019.4.18f1
-          - 2020.1.17f1
-          - 2020.2.1f1
-          - 2021.1.0b2
+        version: ${{ fromJson(needs.base-and-hub.outputs.versions) }}
         module:
           - base
           - linux-il2cpp
@@ -92,15 +102,7 @@ jobs:
           - ios
           - android
           - webgl
-        exclude:
-          - version: 2018.3.14f1
-            module: linux-il2cpp
-          - version: 2018.4.30f1
-            module: linux-il2cpp
-          - version: 2019.1.14f1
-            module: linux-il2cpp
-          - version: 2019.2.21f1
-            module: linux-il2cpp
+        exclude: ${{ fromJson(needs.base-and-hub.outputs.excludes) }}
 
     steps:
       ###########################
