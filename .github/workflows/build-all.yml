@@ -9,6 +9,8 @@ jobs:
   build:
     name: "Build base and hub"
     runs-on: ubuntu-18.04
+    outputs:
+      skip: ${{ steps.check-building.outputs.skip }}
     steps:
       ###########################
       #     Load .env (main)    #
@@ -93,12 +95,24 @@ jobs:
           labels: ${{ steps.docker-meta.output.labels }}
           tags: ${{ env.HUB_IMAGE }}:${{ steps.latest.outputs.release }}
 
+      ###########################
+      #   Check build running   #
+      ###########################
+      - name: Check build running
+        id: check-building
+        run: |
+          gh auth login --with-token < <(echo ${{ github.token }})
+          IN_PROGRESS_COUNT=`gh api -X GET /repos/${{ github.repository }}/actions/runs | jq '[ .workflow_runs[] | select(.status == "in_progress" and .name == "Build Editor Module") ] | length'`
+          echo "Build Editor Module (running): $IN_PROGRESS_COUNT"
+          [ $IN_PROGRESS_COUNT -gt 0 ] && echo "::set-output name=skip::true" || :
+
   ###########################
   #  Dispatch build editor  #
   ###########################
   dispatch-build-eitor:
     name: "🚀 Dispatch 'Build Editor' (${{ matrix.module }})"
     needs: build
+    if: needs.build.outputs.skip != 'true'
     runs-on: ubuntu-18.04
     strategy:
       matrix:
