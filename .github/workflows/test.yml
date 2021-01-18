@@ -72,18 +72,18 @@ jobs:
       - name: "Setup build matrix"
         id: setup
         run: |
-          # Get Unity versions for test. The versions are latest patch.
+          # Get the Unity versions for test. (The latest patch versions for each minor version.)
           VERSIONS=`npx unity-changeset list --versions --latest-patch --json --min 2018.3`
           echo "Versions: $VERSIONS"
           echo "::set-output name=versions::$VERSIONS"
 
           # Exclude linux-il2cpp for Unity 2019.2 or earlier
-          EXCLUDES="`npx unity-changeset list --versions --latest-patch --json --min 2018.3 --max 2019.2 | jq -c 'map({ version: ., module: \"linux-il2cpp\"})'`"
+          EXCLUDES="`echo \"$VERSIONS\" | jq -c '[ .[] | select(test(\"2018|2019.1|2019.2\")) | { version: ., module: \"linux-il2cpp\"} ]'`"
           echo "Excludes: $EXCLUDES"
           echo "::set-output name=excludes::$EXCLUDES"
 
   ###########################
-  #       Build editor      #
+  #  Build editor and test  #
   ###########################
   editor:
     needs: base-and-hub
@@ -94,6 +94,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # The latest patch versions for each minor version.
         version: ${{ fromJson(needs.base-and-hub.outputs.versions) }}
         module:
           - base
@@ -103,6 +104,22 @@ jobs:
           - ios
           - android
           - webgl
+        include:
+          - module: base
+            platform: StandaloneLinux64
+          - module: linux-il2cpp
+            platform: StandaloneLinux64
+          - module: windows-mono
+            platform: StandaloneWindows
+          - module: mac-mono
+            platform: StandaloneOSX
+          - module: ios
+            platform: iOS
+          - module: android
+            platform: Android
+          - module: webgl
+            platform: WebGL
+        # Exclude linux-il2cpp for Unity 2019.2 or earlier
         exclude: ${{ fromJson(needs.base-and-hub.outputs.excludes) }}
 
     steps:
@@ -192,54 +209,30 @@ jobs:
         run: docker images
       - name: Setup to test
         run: |
-          if [ "${{ matrix.module }}" = "base" ] ; then
-            echo "TARGET_PLATFORM=StandaloneLinux64" >> $GITHUB_ENV
-            echo "BUILD_TARGET=Linux64"              >> $GITHUB_ENV
-
-          elif [ "${{ matrix.module }}" = "windows-mono" ] ; then
-            echo "TARGET_PLATFORM=StandaloneWindows" >> $GITHUB_ENV
-            echo "BUILD_TARGET=Win64"                >> $GITHUB_ENV
-            
-          elif [ "${{ matrix.module }}" = "mac-mono" ] ; then
-            echo "TARGET_PLATFORM=StandaloneOSX"     >> $GITHUB_ENV
-            echo "BUILD_TARGET=OSXUniversal"         >> $GITHUB_ENV
-            
-          elif [ "${{ matrix.module }}" = "ios" ] ; then
-            echo "TARGET_PLATFORM=iOS"               >> $GITHUB_ENV
-            echo "BUILD_TARGET=iOS"                  >> $GITHUB_ENV
-            
-          elif [ "${{ matrix.module }}" = "android" ] ; then
-            echo "TARGET_PLATFORM=Android"           >> $GITHUB_ENV
-            echo "BUILD_TARGET=Android"              >> $GITHUB_ENV
-            
-          elif [ "${{ matrix.module }}" = "webgl" ] ; then
-            echo "TARGET_PLATFORM=WebGL"             >> $GITHUB_ENV
-            echo "BUILD_TARGET=WebGL"                >> $GITHUB_ENV
-            
-          elif [ "${{ matrix.module }}" = "linux-il2cpp" ] ; then
-            echo "TARGET_PLATFORM=StandaloneLinux64" >> $GITHUB_ENV
-            echo "BUILD_TARGET=Linux64"              >> $GITHUB_ENV
-            
-            # Switch script backend to il2cpp
+          # For 'linux-il2cpp' module, switch the script backend to 'IL2CPP'
+          if [ "${{ matrix.module }}" = "linux-il2cpp" ] ; then
             mv -f reference-project-test/ProjectSettings/ProjectSettings_il2cpp.asset reference-project-test/ProjectSettings/ProjectSettings.asset
           fi
 
       ###########################
-      #        Tests        #
+      #          Build          #
       ###########################
       - name: Build project
         uses: game-ci/unity-builder@main
         with:
           unityVersion: ${{ matrix.version }}
           customImage: editor:dev
-          targetPlatform: ${{ env.TARGET_PLATFORM }}
           projectPath: reference-project-test
+          targetPlatform: ${{ matrix.platform }}
           allowDirtyBuild: true
 
+      ###########################
+      #           Test          #
+      ###########################
       - name: Test project
         uses: game-ci/unity-test-runner@main
         with:
           unityVersion: ${{ matrix.version }}
           customImage: editor:dev
-          customParameters: -nographics -buildTarget ${{ env.TARGET_PLATFORM }}
           projectPath: reference-project-test
+          customParameters: -nographics -buildTarget ${{ matrix.platform }}
