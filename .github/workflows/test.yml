@@ -7,7 +7,7 @@ on:
     paths:
       - "**/Dockerfile"
       - .github/workflows/test.yml
-      - reference-project/*
+      - reference-project-test/*
   pull_request:
     types:
       - "opened"
@@ -15,7 +15,7 @@ on:
     paths:
       - "**/Dockerfile"
       - .github/workflows/test.yml
-      - reference-project/*
+      - reference-project-test/*
 
 jobs:
   ###########################
@@ -218,7 +218,7 @@ jobs:
             echo "BUILD_TARGET=Linux64"              >> $GITHUB_ENV
             
             # Switch script backend to il2cpp
-            mv -f reference-project/ProjectSettings/ProjectSettings_il2cpp.asset reference-project/ProjectSettings/ProjectSettings.asset
+            mv -f reference-project-test/ProjectSettings/ProjectSettings_il2cpp.asset reference-project-test/ProjectSettings/ProjectSettings.asset
           fi
 
       ###########################
@@ -229,8 +229,8 @@ jobs:
         with:
           unityVersion: ${{ matrix.version }}
           customImage: editor:dev
-          projectPath: reference-project
           targetPlatform: ${{ env.TARGET_PLATFORM }}
+          projectPath: reference-project-test
           allowDirtyBuild: true
 
       - name: Test project
@@ -238,5 +238,5 @@ jobs:
         with:
           unityVersion: ${{ matrix.version }}
           customImage: editor:dev
-          projectPath: reference-project
           customParameters: -nographics -buildTarget ${{ env.TARGET_PLATFORM }}
+          projectPath: reference-project-test
