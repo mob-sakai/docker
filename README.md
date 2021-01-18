@@ -45,6 +45,11 @@ and have read the [contribution guide](./CONTRIBUTING.md).
   * The `backend-versioning server` provides Unity versioning and build triggers
   * Instead: [unity-changeset](https://www.npmjs.com/package/unity-changeset) provides Unity versioning based on the official page
   * Instead: `workflow_dispatch` and `schedule` events on GitHub Actions workflow provides build triggers
+* Support alpha/beta versions
+  * Unity package developers (including me) are concerned about whether their packages will work properly with newer versions of Unity
+* Change the image id and tags
+  * [mobsakai/unity_editor](https://hub.docker.com/repository/docker/mobsakai/unity_editor)
+  * e.g. `mobsakai/unity_editor:2020.1.17f1-base`, `mobsakai/unity_editor:2020.1.17f1-webgl`
 * Release automatically with [semantic-release](https://github.com/semantic-release/semantic-release)
   * The version is [based on a committed message](https://www.conventionalcommits.org/)
   * Tagging based on [Semantic Versioning 2.0.0](https://semver.org/)
@@ -56,7 +61,7 @@ and have read the [contribution guide](./CONTRIBUTING.md).
   * Use `skopeo` to check image tags
 * Support environment variables file (`.gitgub/workflow/.env`) for build settings
   * `DOCKER_REGISTRY`: Docker registry. e.g. `docker.io` (Docker Hub), `ghcr.io` (GitHub Container Registory), `gcr.io` (Google Container Registory)
-  * `DOCKER_USERNAME`: Username to login docker registry.
+  * `DOCKER_USERNAME`: Username to login docker registry
   * `BASE_IMAGE`
   * `EDITOR_IMAGE`
   * `HUB_IMAGE`
@@ -112,7 +117,7 @@ All workflows will be run automatically.
 ### Create manual activation license file (*.alf)
 
 ```sh
-docker run --rm -v "$(pwd)":/home -w /home -i ghcr.io/mob-sakai/unity_editor:2020.2.1f1-webgl unity-editor -createManualActivationFile -logFile /dev/stdout
+docker run --rm -v "$(pwd)":/home -w /home -i mobsakai/unity_editor:2020.2.1f1-webgl unity-editor -createManualActivationFile -logFile /dev/stdout
 ```
 
 ### Activate Unity license and generate Unity license file (*.ulf)
@@ -126,7 +131,7 @@ For details, run `npx unity-acctivate -h`.
 ### Run the Unity project
 
 ```sh
-docker run --rm -v "<UNITY_PROJECT_PATH>":/home -w /home -i ghcr.io/mob-sakai/unity_editor:2020.2.1f1-webgl bash <<EOF
+docker run --rm -v "<UNITY_PROJECT_PATH>":/home -w /home -i mobsakai/unity_editor:2020.2.1f1-webgl bash <<EOF
 echo '$(cat <ULF_PATH>)' > ulf
 unity-editor -logFile /dev/stdout -quit -nographics -manualLicenseFile ulf
 unity-editor -logFile /dev/stdout -quit -nographics -projectPath . -executeMethod Method.Full.Path
@@ -140,7 +145,7 @@ EOF
   uses: game-ci/unity-builder@main
   with:
     unityVersion: 2020.1.15f1
-    customImage: ghcr.io/mob-sakai/unity_editor:2020.1.15f1-webgl
+    customImage: mobsakai/unity_editor:2020.1.15f1-webgl
     projectPath: .
     targetPlatform: webgl
   env:
@@ -150,7 +155,7 @@ EOF
   uses: game-ci/unity-test-runner@main
   with:
     unityVersion: 2020.1.15f1
-    customImage: ghcr.io/mob-sakai/unity_editor:2020.1.15f1-webgl
+    customImage: mobsakai/unity_editor:2020.1.15f1-webgl
     projectPath: .
     customParameters: -nographics -buildTarget webgl
 ```
