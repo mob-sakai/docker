@@ -108,14 +108,6 @@ jobs:
         run: |
           # Changeset for unity version
           echo "CHANGESET=`npx unity-changeset ${{ matrix.version }}`" >> $GITHUB_ENV
-
-          # Dockerfile to build
-          if [ `echo ${{ matrix.version }}-${{ matrix.module }} | grep -e '^2018.*-android$'` ] ; then
-            echo "DOCKER_FILE=editor/2018.x-android.Dockerfile" >> $GITHUB_ENV
-          else
-            echo "DOCKER_FILE=editor/Dockerfile" >> $GITHUB_ENV
-          fi
-
       - name: Free disk space
         run: .github/workflows/scripts/free_disk_space.sh
 
@@ -139,7 +131,7 @@ jobs:
         timeout-minutes: 40
         with:
           context: .
-          file: ${{ env.DOCKER_FILE }}
+          file: editor/Dockerfile
           build-args: |
             baseImage=${{ env.BASE_IMAGE }}:${{ steps.latest.outputs.release }}
             hubImage=${{ env.HUB_IMAGE }}:${{ steps.latest.outputs.release }}
@@ -167,7 +159,7 @@ jobs:
         timeout-minutes: 40
         with:
           context: .
-          file: ${{ env.DOCKER_FILE }}
+          file: editor/Dockerfile
           build-args: |
             baseImage=${{ env.BASE_IMAGE }}:${{ steps.latest.outputs.release }}
             hubImage=${{ env.HUB_IMAGE }}:${{ steps.latest.outputs.release }}

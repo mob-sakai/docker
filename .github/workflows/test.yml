@@ -151,13 +151,6 @@ jobs:
           # The changeset for unity version
           echo "CHANGESET=`npx unity-changeset ${{ matrix.version }}`" >> $GITHUB_ENV
 
-          # Dockerfile to build
-          if [ `echo ${{ matrix.version }}-${{ matrix.module }} | grep -e '^2018.*-android$'` ] ; then
-            echo "DOCKER_FILE=editor/2018.x-android.Dockerfile" >> $GITHUB_ENV
-          else
-            echo "DOCKER_FILE=editor/Dockerfile" >> $GITHUB_ENV
-          fi
-
       ###########################
       #       Build editor      #
       ###########################
@@ -169,7 +162,7 @@ jobs:
         timeout-minutes: 40
         with:
           context: .
-          file: ${{ env.DOCKER_FILE }}
+          file: editor/Dockerfile
           build-args: |
             baseImage=base:dev
             hubImage=hub:dev
@@ -193,7 +186,7 @@ jobs:
         timeout-minutes: 40
         with:
           context: .
-          file: ${{ env.DOCKER_FILE }}
+          file: editor/Dockerfile
           build-args: |
             baseImage=base:dev
             hubImage=hub:dev
