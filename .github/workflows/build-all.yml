@@ -11,7 +11,7 @@ env:
   BASE_IMAGE: mobsakai/unity_base     # Base image ID
   HUB_IMAGE: mobsakai/unity_hub       # Hub image ID
   EDITOR_IMAGE: mobsakai/unity_editor # Editor image ID
-  MINIMUM_UNITY_VERSION: "2018.3"     # Minimum Unity version to build
+  MINIMUM_UNITY_VERSION: "2020.1"     # Minimum Unity version to build
   INCLUDE_BETA_VERSIONS: true         # Include alpha/beta versions
   EXCLUDE_IMAGE_TAGS: |               # Excluded image tags (Regular expressions)
     2018.*-linux-il2cpp
