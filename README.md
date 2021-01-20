@@ -59,16 +59,14 @@ and have read the [contribution guide](./CONTRIBUTING.md).
   * Build all editor images every day
 * Fast skip earlier builds of images that already exist
   * Use `skopeo` to check image tags
-* Support environment variables file (`.gitgub/workflow/.env`) for build settings
-  * `DOCKER_REGISTRY`: Docker registry. e.g. `docker.io` (Docker Hub), `ghcr.io` (GitHub Container Registory), `gcr.io` (Google Container Registory)
-  * `DOCKER_USERNAME`: Username to login docker registry
-  * `BASE_IMAGE`
-  * `EDITOR_IMAGE`
-  * `HUB_IMAGE`
-  * `MINIMUM_UNITY_VERSION`
-  * `INCLUDE_BETA_VERSIONS`
-  * `INCLUDE_IMAGE_TAGS`
-  * `EXCLUDE_IMAGE_TAGS`: The build specifies an unstable version and prevents flooding of the error notifications
+* Support environment variables in workflows
+  * `DOCKERHUB_USERNAME`: DockerHub user name
+  * `BASE_IMAGE`: Base image ID
+  * `HUB_IMAGE`: Hub image ID
+  * `EDITOR_IMAGE`: Editor image ID
+  * `MINIMUM_UNITY_VERSION`: Minimum Unity version to build (e.g. 2018.3)
+  * `INCLUDE_BETA_VERSIONS`: Include alpha/beta versions
+  * `EXCLUDE_IMAGE_TAGS`: Excluded image tags (Regular expressions)
 * Support for alpha/beta versions of Unity (e.g. 2020.2.0b, 2021.1.0a)
   * :warning: **NOTE: The versions removed from [Unity beta](https://unity3d.com/beta) will not be updated**
 * Grouping workflows in a module (base, webgl, ...)

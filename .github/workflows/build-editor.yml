@@ -1,128 +1,73 @@
-# NOTE: Cache limitation is 5 GB per repo, and 7 days.
-#       Do not cache each version because it is too small to install Unity.
-name: Build Editor Module
+name: Build Editor
 
 on:
   workflow_dispatch:
     inputs:
+      versions:
+        description: "Unity versions to build (json array)"
+        required: true
+        default: '[ "2018.4.30f1" ]'
       module:
         description: "Unity module to build.\n(base|linux-il2cpp|windows-mono|mac-mono|ios|android|webgl)"
         required: true
+        default: "base"
+      tag:
+        description: "Release tag"
+        required: true
+        default: "v1.0.0"
+
+env:
+  DOCKERHUB_USERNAME: mobsakai        # DockerHub user name
+  # DOCKERHUB_PASSWORD=********       # from repository secret
+  BASE_IMAGE: mobsakai/unity_base     # Base image ID
+  HUB_IMAGE: mobsakai/unity_hub       # Hub image ID
+  EDITOR_IMAGE: mobsakai/unity_editor # Editor image ID
 
 jobs:
-  ###########################
-  #           Setup         #
-  ###########################
-  setup:
-    name: Setup build matrix (${{ github.event.inputs.module }})
-    runs-on: ubuntu-18.04
-    outputs:
-      matrix: ${{ steps.setup.outputs.matrix }}
-      skip: ${{ steps.setup.outputs.skip }}
-    steps:
-      ###########################
-      #     Load .env (main)    #
-      ###########################
-      - uses: actions/checkout@v2
-        with:
-          ref: main
-      - name: Load .env
-        run: cat .github/workflows/.env | sed 's/=\" *$/<<EOD/g' | sed 's/^\"/EOD/g' | grep '^[^# ]' >> $GITHUB_ENV
-
-      ###########################
-      #   Setup build matrix    #
-      ###########################
-      - name: Login to docker registry
-        uses: docker/login-action@v1
-        with:
-          registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ env.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-      - uses: pozetroninc/github-action-get-latest-release@master
-        id: latest
-        with:
-          repository: ${{ github.repository }}
-          excludes: prerelease, draft
-      - name: Setup build matrix
-        id: setup
-        run: |
-          # If all the combination tags to be built are existed in the registry: steps.setup.outputs.skip=true
-          .github/workflows/scripts/setup_build_matrix.sh ${{ github.event.inputs.module }} ${{ steps.latest.outputs.release }}
-
-  ###########################
-  #       Build editor      #
-  ###########################
   build:
-    name: Build ${{ matrix.version }} ${{ matrix.module }}
-    if: needs.setup.outputs.skip != 'true'
-    needs: setup
+    name: Build ${{ matrix.version }} ${{ github.event.inputs.module }}
     runs-on: ubuntu-18.04
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
-      # The matrix is expanded like this:
-      # matrix:
-      #   module:
-      #     - base
-      #   version:
-      #     - 2018.3.1f1
-      #     - 2018.3.2f1
-      #     ...
+      matrix:
+        version: ${{ fromJson(github.event.inputs.versions) }}
     steps:
-      ###########################
-      #     Load .env (main)    #
-      ###########################
-      - uses: actions/checkout@v2
-        with:
-          ref: main
-      - name: Load .env
-        run: cat .github/workflows/.env | sed 's/=\" *$/<<EOD/g' | sed 's/^\"/EOD/g' | grep '^[^# ]' >> $GITHUB_ENV
-
-      ###########################
-      #     Checkout latest     #
-      ###########################
-      - uses: pozetroninc/github-action-get-latest-release@master
-        id: latest
-        with:
-          repository: ${{ github.repository }}
-          excludes: prerelease, draft
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ steps.latest.outputs.release }}
-
       ###########################
       #          Setup          #
       ###########################
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.inputs.tag }}
       - uses: docker/login-action@v1
         with:
-          registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ env.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Check
-        run: |
-          # If the image tag already exists, skip the build
-          [ `skopeo list-tags docker://${{ env.EDITOR_IMAGE }} | jq -r '.Tags[]' | grep -x '${{ matrix.version }}-${{ matrix.module }}-${{ steps.latest.outputs.release }}'` ] && exit 1 || :
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
       - uses: docker/setup-qemu-action@v1
       - uses: docker/setup-buildx-action@v1
-      - name: Setup to build
+      - name: Setup
         run: |
-          # Changeset for unity version
+          # If the image tag already exists, skip the build
+          IMAGE_TAG="${{ matrix.version }}-${{ github.event.inputs.module }}-${{ github.event.inputs.tag }}"
+          [ `skopeo list-tags docker://$EDITOR_IMAGE || echo '' | jq -r '.Tags[]' | grep -x "$IMAGE_TAG"` ] && exit 1 || :
+
+          # The Changeset for unity version
           echo "CHANGESET=`npx unity-changeset ${{ matrix.version }}`" >> $GITHUB_ENV
-      - name: Free disk space
-        run: .github/workflows/scripts/free_disk_space.sh
+
+          # Free disk space
+          # .github/workflows/scripts/free_disk_space.sh
+      
+      - run: |
+          echo "baseImage=${{ env.BASE_IMAGE }}:${{ github.event.inputs.tag }}"
+          echo "hubImage=${{ env.HUB_IMAGE }}:${{ github.event.inputs.tag }}"
+          echo "version=${{ matrix.version }}"
+          echo "changeSet=${{ env.CHANGESET }}"
+          echo "module=${{ github.event.inputs.module }}"
+          echo "tag=${{ matrix.version }}-${{ github.event.inputs.module }}-${{ github.event.inputs.tag }}"
+          echo "tag=${{ matrix.version }}-${{ github.event.inputs.module }}"
 
       ###########################
       # Build and push (Editor) #
       ###########################
-      - uses: crazy-max/ghaction-docker-meta@v1
-        id: docker
-        with:
-          images: ${{ env.EDITOR_IMAGE }}
-          tag-custom-only: true
-          tag-custom: |
-            ${{ matrix.version }}-${{ matrix.module }}-${{ steps.latest.outputs.release }}
-            ${{ matrix.version }}-${{ matrix.module }}
-
       - name: Build
         # if: steps.build-1.outcome == 'failure'
         uses: docker/build-push-action@v2
@@ -133,23 +78,24 @@ jobs:
           context: .
           file: editor/Dockerfile
           build-args: |
-            baseImage=${{ env.BASE_IMAGE }}:${{ steps.latest.outputs.release }}
-            hubImage=${{ env.HUB_IMAGE }}:${{ steps.latest.outputs.release }}
+            baseImage=${{ env.BASE_IMAGE }}:${{ github.event.inputs.tag }}
+            hubImage=${{ env.HUB_IMAGE }}:${{ github.event.inputs.tag }}
             version=${{ matrix.version }}
             changeSet=${{ env.CHANGESET }}
-            module=${{ matrix.module }}
+            module=${{ github.event.inputs.module }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           push: true
-          labels: ${{ steps.docker.outputs.labels }}
-          tags: ${{ steps.docker.outputs.tags }}
+          tags: |
+            ${{ matrix.version }}-${{ github.event.inputs.module }}-${{ github.event.inputs.tag }}
+            ${{ matrix.version }}-${{ github.event.inputs.module }}
 
       ###########################
       #          Retry          #
       ###########################
       - name: Sleep for retry
         if: steps.build-1.outcome == 'failure'
-        run: sleep 120
+        run: sleep 60
 
       - name: Build (Retry)
         if: steps.build-1.outcome == 'failure'
@@ -161,13 +107,14 @@ jobs:
           context: .
           file: editor/Dockerfile
           build-args: |
-            baseImage=${{ env.BASE_IMAGE }}:${{ steps.latest.outputs.release }}
-            hubImage=${{ env.HUB_IMAGE }}:${{ steps.latest.outputs.release }}
+            baseImage=${{ env.BASE_IMAGE }}:${{ github.event.inputs.tag }}
+            hubImage=${{ env.HUB_IMAGE }}:${{ github.event.inputs.tag }}
             version=${{ matrix.version }}
             changeSet=${{ env.CHANGESET }}
-            module=${{ matrix.module }}
+            module=${{ github.event.inputs.module }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           push: true
-          labels: ${{ steps.docker.outputs.labels }}
-          tags: ${{ steps.docker.outputs.tags }}
+          tags: |
+            ${{ matrix.version }}-${{ github.event.inputs.module }}-${{ github.event.inputs.tag }}
+            ${{ matrix.version }}-${{ github.event.inputs.module }}
