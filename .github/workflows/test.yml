@@ -71,6 +71,8 @@ jobs:
       ###########################
       - name: "Setup build matrix"
         id: setup
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICNSE }}
         run: |
           # Get the Unity versions for test. (The latest patch versions for each minor version.)
           VERSIONS=`npx unity-changeset list --versions --latest-patch --json --min 2018.3`
@@ -81,6 +83,8 @@ jobs:
           EXCLUDES="`echo \"$VERSIONS\" | jq -c '[ .[] | select(test(\"2018|2019.1|2019.2\")) | { version: ., module: \"linux-il2cpp\"} ]'`"
           echo "Excludes: $EXCLUDES"
           echo "::set-output name=excludes::$EXCLUDES"
+          
+          echo "UNITY_LICENSE = $UNITY_LICENSE"
 
   ###########################
   #  Build editor and test  #
