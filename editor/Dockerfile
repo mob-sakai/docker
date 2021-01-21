@@ -148,3 +148,5 @@ RUN [ `echo $version-$module | grep -v '^2021.*-linux-il2cpp'` ] && exit 0 || : 
     lld \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
+
+RUN echo "test"
