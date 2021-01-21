@@ -95,32 +95,13 @@ jobs:
       fail-fast: false
       matrix:
         # The latest patch versions for each minor version.
-        version: ${{ fromJson(needs.base-and-hub.outputs.versions) }}
+        version: 
+          - 2018.4.30f1
         module:
           - base
-          - linux-il2cpp
-          - windows-mono
-          - mac-mono
-          - ios
-          - android
-          - webgl
         include:
           - module: base
             platform: StandaloneLinux64
-          - module: linux-il2cpp
-            platform: StandaloneLinux64
-          - module: windows-mono
-            platform: StandaloneWindows
-          - module: mac-mono
-            platform: StandaloneOSX
-          - module: ios
-            platform: iOS
-          - module: android
-            platform: Android
-          - module: webgl
-            platform: WebGL
-        # Exclude linux-il2cpp for Unity 2019.2 or earlier
-        exclude: ${{ fromJson(needs.base-and-hub.outputs.excludes) }}
 
     steps:
       ###########################
