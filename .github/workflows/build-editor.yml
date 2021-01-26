@@ -13,15 +13,14 @@ on:
         description: "An Unity module to build.\n(base|linux-il2cpp|windows-mono|mac-mono|ios|android|webgl)"
         required: true
         default: "base"
-      tag:
+      releaseTag:
         description: "Release tag"
         required: true
-        default: "v1.0.0"
-      dry-run:
-        description: "Skip image build and push"
+        default: "v1.2.3"
+      dryRun:
+        description: "Dry run: Skip image build and push"
         required: true
         default: "true"
-
 env:
   DOCKERHUB_USERNAME: mobsakai # DockerHub user name
   # DOCKERHUB_PASSWORD=********       # from repository secret
@@ -33,19 +32,21 @@ jobs:
   build:
     name: Build ${{ matrix.version }} ${{ github.event.inputs.module }}
     runs-on: ubuntu-18.04
+    env:
+      module: ${{ github.event.inputs.module }}
+      releaseTag: ${{ github.event.inputs.releaseTag }}
+      dryRun: ${{ github.event.inputs.dryRun }}
     strategy:
       fail-fast: false
       matrix:
         version: ${{ fromJson(github.event.inputs.versions) }}
-        module:
-          - ${{ github.event.inputs.module }}
     steps:
       ###########################
       #          Setup          #
       ###########################
       - uses: actions/checkout@v2
         with:
-          ref: ${{ github.event.inputs.tag }}
+          ref: ${{ env.releaseTag }}
       - uses: docker/login-action@v1
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
@@ -54,51 +55,60 @@ jobs:
       - uses: docker/setup-buildx-action@v1
       - name: Setup
         run: |
-          RELEASE_TAG=${{ steps.latest.outputs.release }}
-          MAJOR=`echo $RELEASE_TAG | tr -d 'v' | cut -d '.' -f 1`
-          MINOR=`echo $RELEASE_TAG | tr -d 'v' | cut -d '.' -f 2`
-          PATCH=`echo $RELEASE_TAG | tr -d 'v' | cut -d '.' -f 3`
-
-          REPO_VERSION_FULL=${MAJOR:-0}.${MINOR:-0}.${PATCH:-0}
-          REPO_VERSION_MINOR=${MAJOR:-0}.${MINOR:-0}
-          REPO_VERSION_MAJOR=${MAJOR:-0}
+          MAJOR=`echo ${{ env.releaseTag }} | tr -d 'v' | cut -d '.' -f 1`
+          MINOR=`echo ${{ env.releaseTag }} | tr -d 'v' | cut -d '.' -f 2`
+          PATCH=`echo ${{ env.releaseTag }} | tr -d 'v' | cut -d '.' -f 3`
 
           # If the image tag already exists, skip the build
-          [ `skopeo list-tags docker://$EDITOR_IMAGE || echo '' | jq -r '.Tags[]' | grep -x "${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_FULL }"` ] && exit 1 || :
+          [ `skopeo list-tags docker://$EDITOR_IMAGE || echo '' | jq -r '.Tags[]' | grep -x "${{ matrix.version }}-${{ matrix.module }}-${MAJOR:-0}.${MINOR:-0}.${PATCH:-0}"` ] && exit 1 || :
+
+          echo "repoVersionFull=${MAJOR:-0}.${MINOR:-0}.${PATCH:-0}" >> $GITHUB_ENV
+          echo "repoVersionMinor=${MAJOR:-0}.${MINOR:-0}" >> $GITHUB_ENV
+          echo "repoVersionMajor=${MAJOR:-0}" >> $GITHUB_ENV
 
           # The Changeset for unity version
-          changeSet=`npx unity-changeset ${{ matrix.version }}`
-
-          echo BUILD_ARGS=\""`{
-            echo "baseImage=${{ env.BASE_IMAGE }}:${ REPO_VERSION_FULL }" ;
-            echo "hubImage=${{ env.HUB_IMAGE }}:${ REPO_VERSION_FULL }" ;
-            echo "version=${{ matrix.version }}" ;
-            echo "changeSet=$changeSet" ;
-            echo "module=${{ matrix.module }}" ;
-          }`"\" >> $GITHUB_ENV
-
-          echo TAGS=\""`{
-            echo "${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_FULL }" ;
-            echo "${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_FULL }" ;
-            echo "${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_MINOR }" ;
-            echo "${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_MINOR }" ;
-            echo "${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_MAJOR }" ;
-            echo "${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_MAJOR }" ;
-          }`"\" >> $GITHUB_ENV
+          echo "changeSet=`npx unity-changeset ${{ matrix.version }}`" >> $GITHUB_ENV
 
           # Free disk space
           .github/workflows/scripts/free_disk_space.sh
+          
+      - name: show
+        run: |
+            echo "baseImage=${{ env.BASE_IMAGE }}:${{ env.repoVersionFull }}"
+            echo "hubImage=${{ env.HUB_IMAGE }}:${{ env.repoVersionFull }}"
+            echo "version=${{ matrix.version }}"
+            echo "changeSet=${{ env.changeSet }}"
+            echo "module=${{ env.module }}"
+            echo "${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionFull }}"
+            echo "${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionFull }}"
+            echo "${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionMinor }}"
+            echo "${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionMinor }}"
+            echo "${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionMajor }}"
+            echo "${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionMajor }}"
 
       ###########################
       # Build and push (Editor) #
       ###########################
       - name: Build
+        if: env.dryRun != 'true'
         timeout-minutes: 30
         with:
           context: .
           file: editor/Dockerfile
-          build-args: ${{ env.BUILD_ARGS }}
+          build-args: |
+            baseImage=${{ env.BASE_IMAGE }}:${{ env.repoVersionFull }}
+            hubImage=${{ env.HUB_IMAGE }}:${{ env.repoVersionFull }}
+            version=${{ matrix.version }}
+            changeSet=${{ env.changeSet }}
+            module=${{ env.module }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           push: true
-          tags: ${{ env.TAGS }}
+          tags: |
+            ${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionFull }}
+            ${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionFull }}
+            ${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionMinor }}
+            ${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionMinor }}
+            ${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionMajor }}
+            ${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersionMajor }}
+
