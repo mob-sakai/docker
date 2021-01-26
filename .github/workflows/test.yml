@@ -29,7 +29,7 @@ jobs:
       ###########################
       - uses: actions/checkout@v2
       - name: Checkout pull request (for testing)
-        if: github.event.event_type == 'pull_request_target'
+        if: github.event_name == 'pull_request_target'
         run: |
           # Checkout the minimum files needed to test from the merge commit.
           # NOTE: There is a vulnerability in the pull_request_target event.
@@ -83,7 +83,7 @@ jobs:
         id: setup
         run: |
           # Get the Unity versions for test. (The latest patch versions for each minor version.)
-          VERSIONS=`npx unity-changeset list --versions --latest-patch --json --min 2020.1 --all`
+          VERSIONS=`npx unity-changeset list --versions --latest-patch --json --min 2018.3`
           echo "Versions: $VERSIONS"
           echo "::set-output name=versions::$VERSIONS"
 
@@ -137,7 +137,7 @@ jobs:
       ###########################
       - uses: actions/checkout@v2
       - name: Checkout pull request (for testing)
-        if: github.event.event_type == 'pull_request_target'
+        if: github.event_name == 'pull_request_target'
         run: |
           # Checkout the minimum files needed to test from the merge commit.
           # NOTE: There is a vulnerability in the pull_request_target event.
