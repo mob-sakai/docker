@@ -210,10 +210,10 @@ jobs:
       ###########################
       - name: "🚀 Dispatch 'Build Editor'"
         # If there is no version to be built, the build will be skipped.
-        if: steps.setup.outputs.skip != 'true' && github.event.inputs.dryRun != 'true'
+        if: steps.setup.outputs.skip != 'true'
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: Build Editor
           token: ${{ secrets.GH_WORKFLOW_TOKEN }}
-          inputs: '{ "versions": ${{ steps.setup.outputs.versions }}, "module": "${{ matrix.module }}", "releaseTag": "${{ env.releaseTag }}", "repoVersionFull": "${{ env.repoVersionFull }}", "repoVersionMinor": "${{ env.repoVersionMinor }}", "repoVersionMajor": "${{ env.repoVersionMajor }}", "dryRun": "${{ github.event.inputs.dryRun }}" }'
+          inputs: '{ "versions": ${{ steps.setup.outputs.versions }}, "module": "${{ matrix.module }}", "releaseTag": "${{ env.releaseTag }}", "dryRun": "${{ github.event.inputs.dryRun }}" }'
           ref: ${{ github.ref }}
