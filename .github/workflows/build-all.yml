@@ -6,9 +6,12 @@ name: Build All
 on:
   workflow_dispatch:
     inputs:
-
-  schedule:
-    - cron: "0 0 * * *" # daily
+      dryRun:
+        description: "Skip image build and push"
+        required: true
+        default: "true"
+  # schedule:
+  #   - cron: "0 0 * * *" # daily
 
 env:
   DOCKERHUB_USERNAME: mobsakai # DockerHub user name
@@ -89,16 +92,16 @@ jobs:
         id: setup
         run: |
           # If the image tag already exists, skip the build. (base)
-          [ `skopeo list-tags docker://$BASE_IMAGE || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'` ] && echo "::set-output name=base_skip::true" || :
+          [ -n "`skopeo list-tags docker://$BASE_IMAGE || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'`" ] && echo "::set-output name=base_skip::true" || :
 
           # If the image tag already exists, skip the build. (hub)
-          [ `skopeo list-tags docker://$HUB_IMAGE  || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'` ] && echo "::set-output name=hub_skip::true" || :
+          [ -n "`skopeo list-tags docker://$HUB_IMAGE  || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'`" ] && echo "::set-output name=hub_skip::true" || :
 
       ###########################
       #  Build and push (Base)  #
       ###########################
       - name: Build and push (Base)
-        if: steps.setup.outputs.base_skip != 'true'
+        if: steps.setup.outputs.base_skip != 'true' || ${{ github.event.inputs.dryRun }} != 'true'
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -120,7 +123,7 @@ jobs:
       #  Build and push (Hub)   #
       ###########################
       - name: Build and push (Hub)
-        if: steps.setup.outputs.hub_skip != 'true'
+        if: steps.setup.outputs.hub_skip != 'true' || ${{ github.event.inputs.dryRun }} != 'true'
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -165,7 +168,11 @@ jobs:
         id: setup
         run: |
           # If all the combination tags to be built are existed in the registry: steps.setup.outputs.skip=true
+
+          echo "======== Parameters ========"
           module=${{ matrix.module }}
+          echo "module=$module"
+          echo "repoVersionFull=$repoVersionFull"
 
           echo "======== Exist tags ========"
           echo '' > .existtags
@@ -197,17 +204,25 @@ jobs:
 
           echo "======== Build matrix ========"
           echo "::set-output name=versions::$UNITY_VERSIONS_TO_BUILD"
-          echo "unityVersionsToBuild=\"$UNITY_VERSIONS_TO_BUILD\"" >> $GITHUB_ENV
 
       ###########################
       #  Dispatch build editor  #
       ###########################
       - name: "🚀 Dispatch 'Build Editor'"
         # If there is no version to be built, the build will be skipped.
-        if: steps.setup.outputs.skip != 'true' && false
+        if: steps.setup.outputs.skip != 'true' || ${{ github.event.inputs.dryRun }} != 'true'
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: Build Editor
           token: ${{ secrets.GH_WORKFLOW_TOKEN }}
-          inputs: '{ "versions": ${{ env.unityVersionsToBuild }}, "module": "${{ matrix.module }}", "releaseTag": "${{ env.releaseTag }}", "repoVersionFull": "${{ env.repoVersionFull }}", "repoVersionMinor": "${{ env.repoVersionMinor }}", "repoVersionMajor": "${{ env.repoVersionMajor }}" }'
+          inputs: |
+              '{
+                "versions": ${{ steps.setup.outputs.versions }},
+                "module": "${{ matrix.module }}",
+                "releaseTag": "${{ env.releaseTag }}",
+                "repoVersionFull": "${{ env.repoVersionFull }}",
+                "repoVersionMinor": "${{ env.repoVersionMinor }}",
+                "repoVersionMajor": "${{ env.repoVersionMajor }}",
+                "dryRun": "${{ github.event.inputs.dryRun }}"
+              }'
           ref: ${{ github.ref }}
