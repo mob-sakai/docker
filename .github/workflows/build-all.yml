@@ -92,10 +92,10 @@ jobs:
         id: setup
         run: |
           # If the image tag already exists, skip the build. (base)
-          [ -n "`skopeo list-tags docker://$BASE_IMAGE || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'`" ] && echo "::set-output name=base_skip::true" || :
+          [ -n "`skopeo list-tags docker://${{ env.BASE_IMAGE }} || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'`" ] && echo "::set-output name=base_skip::true" || :
 
           # If the image tag already exists, skip the build. (hub)
-          [ -n "`skopeo list-tags docker://$HUB_IMAGE  || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'`" ] && echo "::set-output name=hub_skip::true" || :
+          [ -n "`skopeo list-tags docker://${{ env.HUB_IMAGE }}  || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'`" ] && echo "::set-output name=hub_skip::true" || :
 
       ###########################
       #  Build and push (Base)  #
@@ -215,14 +215,5 @@ jobs:
         with:
           workflow: Build Editor
           token: ${{ secrets.GH_WORKFLOW_TOKEN }}
-          inputs: |
-              '{
-                "versions": ${{ steps.setup.outputs.versions }},
-                "module": "${{ matrix.module }}",
-                "releaseTag": "${{ env.releaseTag }}",
-                "repoVersionFull": "${{ env.repoVersionFull }}",
-                "repoVersionMinor": "${{ env.repoVersionMinor }}",
-                "repoVersionMajor": "${{ env.repoVersionMajor }}",
-                "dryRun": "${{ github.event.inputs.dryRun }}"
-              }'
+          inputs: '{ "versions": ${{ steps.setup.outputs.versions }}, "module": "${{ matrix.module }}", "releaseTag": "${{ env.releaseTag }}", "repoVersionFull": "${{ env.repoVersionFull }}", "repoVersionMinor": "${{ env.repoVersionMinor }}", "repoVersionMajor": "${{ env.repoVersionMajor }}", "dryRun": "${{ github.event.inputs.dryRun }}" }'
           ref: ${{ github.ref }}
