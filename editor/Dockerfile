@@ -7,6 +7,7 @@ ARG baseImage="unityci/base"
 
 FROM $hubImage AS builder
 
+RUN echo "hoge"
 # Install editor
 ARG version
 ARG changeSet
