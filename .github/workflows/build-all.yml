@@ -92,16 +92,16 @@ jobs:
         id: setup
         run: |
           # If the image tag already exists, skip the build. (base)
-          [ -n "`skopeo list-tags docker://${{ env.BASE_IMAGE }} || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'`" ] && echo "::set-output name=base_skip::true" || :
+          [ -n "`skopeo list-tags docker://${{ env.BASE_IMAGE }} || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'`" ] && echo "::set-output name=base_skip::true" && echo "skip build base" || :
 
           # If the image tag already exists, skip the build. (hub)
-          [ -n "`skopeo list-tags docker://${{ env.HUB_IMAGE }}  || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'`" ] && echo "::set-output name=hub_skip::true" || :
+          [ -n "`skopeo list-tags docker://${{ env.HUB_IMAGE }}  || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'`" ] && echo "::set-output name=hub_skip::true" && echo "skip build hub" || :
 
       ###########################
       #  Build and push (Base)  #
       ###########################
       - name: Build and push (Base)
-        if: steps.setup.outputs.base_skip != 'true' || ${{ github.event.inputs.dryRun }} != 'true'
+        if: steps.setup.outputs.base_skip != 'true' && github.event.inputs.dryRun != 'true'
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -123,7 +123,7 @@ jobs:
       #  Build and push (Hub)   #
       ###########################
       - name: Build and push (Hub)
-        if: steps.setup.outputs.hub_skip != 'true' || ${{ github.event.inputs.dryRun }} != 'true'
+        if: steps.setup.outputs.hub_skip != 'true' && github.event.inputs.dryRun != 'true'
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -210,7 +210,7 @@ jobs:
       ###########################
       - name: "🚀 Dispatch 'Build Editor'"
         # If there is no version to be built, the build will be skipped.
-        if: steps.setup.outputs.skip != 'true' || ${{ github.event.inputs.dryRun }} != 'true'
+        if: steps.setup.outputs.skip != 'true' && github.event.inputs.dryRun != 'true'
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: Build Editor
