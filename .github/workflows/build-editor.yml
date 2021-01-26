@@ -10,13 +10,17 @@ on:
         required: true
         default: '[ "2018.4.30f1", "2019.4.30f1" ]'
       module:
-        description: "Unity module to build.\n(base|linux-il2cpp|windows-mono|mac-mono|ios|android|webgl)"
+        description: "An Unity module to build.\n(base|linux-il2cpp|windows-mono|mac-mono|ios|android|webgl)"
         required: true
         default: "base"
       tag:
         description: "Release tag"
         required: true
         default: "v1.0.0"
+      dry-run:
+        description: "Skip image build and push"
+        required: true
+        default: "true"
 
 env:
   DOCKERHUB_USERNAME: mobsakai # DockerHub user name
@@ -33,6 +37,8 @@ jobs:
       fail-fast: false
       matrix:
         version: ${{ fromJson(github.event.inputs.versions) }}
+        module:
+          - ${{ github.event.inputs.module }}
     steps:
       ###########################
       #          Setup          #
@@ -48,12 +54,37 @@ jobs:
       - uses: docker/setup-buildx-action@v1
       - name: Setup
         run: |
+          RELEASE_TAG=${{ steps.latest.outputs.release }}
+          MAJOR=`echo $RELEASE_TAG | tr -d 'v' | cut -d '.' -f 1`
+          MINOR=`echo $RELEASE_TAG | tr -d 'v' | cut -d '.' -f 2`
+          PATCH=`echo $RELEASE_TAG | tr -d 'v' | cut -d '.' -f 3`
+
+          REPO_VERSION_FULL=${MAJOR:-0}.${MINOR:-0}.${PATCH:-0}
+          REPO_VERSION_MINOR=${MAJOR:-0}.${MINOR:-0}
+          REPO_VERSION_MAJOR=${MAJOR:-0}
+
           # If the image tag already exists, skip the build
-          IMAGE_TAG="${{ matrix.version }}-${{ github.event.inputs.module }}-${{ github.event.inputs.tag }}"
-          [ `skopeo list-tags docker://$EDITOR_IMAGE || echo '' | jq -r '.Tags[]' | grep -x "$IMAGE_TAG"` ] && exit 1 || :
+          [ `skopeo list-tags docker://$EDITOR_IMAGE || echo '' | jq -r '.Tags[]' | grep -x "${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_FULL }"` ] && exit 1 || :
 
           # The Changeset for unity version
-          echo "CHANGESET=`npx unity-changeset ${{ matrix.version }}`" >> $GITHUB_ENV
+          changeSet=`npx unity-changeset ${{ matrix.version }}`
+
+          echo BUILD_ARGS=\""`{
+            echo "baseImage=${{ env.BASE_IMAGE }}:${ REPO_VERSION_FULL }" ;
+            echo "hubImage=${{ env.HUB_IMAGE }}:${ REPO_VERSION_FULL }" ;
+            echo "version=${{ matrix.version }}" ;
+            echo "changeSet=$changeSet" ;
+            echo "module=${{ matrix.module }}" ;
+          }`"\" >> $GITHUB_ENV
+
+          echo TAGS=\""`{
+            echo "${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_FULL }" ;
+            echo "${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_FULL }" ;
+            echo "${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_MINOR }" ;
+            echo "${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_MINOR }" ;
+            echo "${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_MAJOR }" ;
+            echo "${{ env.EDITOR_IMAGE }}:ubuntu-${{ matrix.version }}-${{ matrix.module }}-${ REPO_VERSION_MAJOR }" ;
+          }`"\" >> $GITHUB_ENV
 
           # Free disk space
           .github/workflows/scripts/free_disk_space.sh
@@ -62,81 +93,12 @@ jobs:
       # Build and push (Editor) #
       ###########################
       - name: Build
-        # if: steps.build-1.outcome == 'failure'
-        uses: docker/build-push-action@v2
-        id: build-1
-        continue-on-error: true
         timeout-minutes: 30
         with:
           context: .
           file: editor/Dockerfile
-          build-args: |
-            baseImage=${{ env.BASE_IMAGE }}:${{ github.event.inputs.tag }}
-            hubImage=${{ env.HUB_IMAGE }}:${{ github.event.inputs.tag }}
-            version=${{ matrix.version }}
-            changeSet=${{ env.CHANGESET }}
-            module=${{ github.event.inputs.module }}
+          build-args: ${{ env.BUILD_ARGS }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           push: true
-          tags: |
-            ${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ github.event.inputs.module }}-${{ github.event.inputs.tag }}
-            ${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ github.event.inputs.module }}
-
-      ###########################
-      #          Retry          #
-      ###########################
-      - name: Sleep for retry
-        if: steps.build-1.outcome == 'failure'
-        run: sleep 120
-
-      - name: Build (Retry)
-        if: steps.build-1.outcome == 'failure'
-        uses: docker/build-push-action@v2
-        id: build-2
-        # continue-on-error: true
-        timeout-minutes: 30
-        with:
-          context: .
-          file: editor/Dockerfile
-          build-args: |
-            baseImage=${{ env.BASE_IMAGE }}:${{ github.event.inputs.tag }}
-            hubImage=${{ env.HUB_IMAGE }}:${{ github.event.inputs.tag }}
-            version=${{ matrix.version }}
-            changeSet=${{ env.CHANGESET }}
-            module=${{ github.event.inputs.module }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
-          push: true
-          tags: |
-            ${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ github.event.inputs.module }}-${{ github.event.inputs.tag }}
-            ${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ github.event.inputs.module }}
-
-      ###########################
-      #          Retry          #
-      ###########################
-      - name: Sleep for retry
-        if: steps.build-2.outcome == 'failure'
-        run: sleep 120
-
-      - name: Build (Retry)
-        if: steps.build-2.outcome == 'failure'
-        uses: docker/build-push-action@v2
-        id: build-3
-        # continue-on-error: true
-        timeout-minutes: 30
-        with:
-          context: .
-          file: editor/Dockerfile
-          build-args: |
-            baseImage=${{ env.BASE_IMAGE }}:${{ github.event.inputs.tag }}
-            hubImage=${{ env.HUB_IMAGE }}:${{ github.event.inputs.tag }}
-            version=${{ matrix.version }}
-            changeSet=${{ env.CHANGESET }}
-            module=${{ github.event.inputs.module }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
-          push: true
-          tags: |
-            ${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ github.event.inputs.module }}-${{ github.event.inputs.tag }}
-            ${{ env.EDITOR_IMAGE }}:${{ matrix.version }}-${{ github.event.inputs.module }}
+          tags: ${{ env.TAGS }}

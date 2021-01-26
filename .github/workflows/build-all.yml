@@ -5,6 +5,8 @@ name: Build All
 
 on:
   workflow_dispatch:
+    inputs:
+
   schedule:
     - cron: "0 0 * * *" # daily
 
@@ -28,8 +30,10 @@ jobs:
     name: "Build base and hub"
     runs-on: ubuntu-18.04
     outputs:
-      # If any 'Build Editor' or other ''Build All'' workflow is in progress, skip build.
-      skip: ${{ steps.check.outputs.skip }}
+      releaseTag: ${{ env.releaseTag }}
+      repoVersionFull: ${{ env.repoVersionFull }}
+      repoVersionMinor: ${{ env.repoVersionMinor }}
+      repoVersionMajor: ${{ env.repoVersionMajor }}
     steps:
       ###########################
       #  Check build workflows  #
@@ -48,17 +52,29 @@ jobs:
           [ 1 -lt `echo $RUNNING_WORKFLOWS | jq '[ .[] | select ( . == "Build All" ) ] | length'` ] && echo "::error::Other 'Build All' workflow is running." && exit 1 || :
 
       ###########################
-      #   Checkout latest tag   #
+      # Checkout latest release #
       ###########################
-      - name: Get latest tag
-        uses: oprypin/find-latest-tag@v1
+      - uses: pozetroninc/github-action-get-latest-release@master
         id: latest
         with:
           repository: ${{ github.repository }}
+          excludes: prerelease, draft
       - name: Checkout latest release
         uses: actions/checkout@v2
         with:
-          ref: ${{ steps.latest.outputs.tag }}
+          ref: ${{ steps.latest.outputs.release }}
+      - name: Get repo versions
+        id: versions
+        run: |
+          releaseTag=${{ steps.latest.outputs.release }}
+
+          MAJOR=`echo $releaseTag | tr -d 'v' | cut -d '.' -f 1`
+          MINOR=`echo $releaseTag | tr -d 'v' | cut -d '.' -f 2`
+          PATCH=`echo $releaseTag | tr -d 'v' | cut -d '.' -f 3`
+
+          echo "repoVersionFull=${MAJOR:-0}.${MINOR:-0}.${PATCH:-0}" >> $GITHUB_ENV
+          echo "repoVersionMinor=${MAJOR:-0}.${MINOR:-0}" >> $GITHUB_ENV
+          echo "repoVersionMajor=${MAJOR:-0}" >> $GITHUB_ENV
 
       ###########################
       #          Setup          #
@@ -69,20 +85,14 @@ jobs:
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-      - uses: actions/cache@v2
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-${{ steps.latest.outputs.tag }}
-          restore-keys: |
-            ${{ runner.os }}-
       - name: Setup
         id: setup
         run: |
           # If the image tag already exists, skip the build. (base)
-          [ `skopeo list-tags docker://$BASE_IMAGE || echo '' | jq -r '.Tags[]' | grep -x '${{ steps.latest.outputs.tag }}'` ] && echo "::set-output name=base_skip::true" || :
+          [ `skopeo list-tags docker://$BASE_IMAGE || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'` ] && echo "::set-output name=base_skip::true" || :
 
           # If the image tag already exists, skip the build. (hub)
-          [ `skopeo list-tags docker://$HUB_IMAGE  || echo '' | jq -r '.Tags[]' | grep -x '${{ steps.latest.outputs.tag }}'` ] && echo "::set-output name=hub_skip::true" || :
+          [ `skopeo list-tags docker://$HUB_IMAGE  || echo '' | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}'` ] && echo "::set-output name=hub_skip::true" || :
 
       ###########################
       #  Build and push (Base)  #
@@ -97,7 +107,13 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache
           push: true
           tags: |
-            ${{ env.BASE_IMAGE }}:${{ steps.latest.outputs.tag }}
+            ${{ env.BASE_IMAGE }}:ubuntu-${{ env.repoVersionFull }}
+            ${{ env.BASE_IMAGE }}:${{ env.repoVersionFull }}
+            ${{ env.BASE_IMAGE }}:ubuntu-${{ env.repoVersionMinor }}
+            ${{ env.BASE_IMAGE }}:${{ env.repoVersionMinor }}
+            ${{ env.BASE_IMAGE }}:ubuntu-${{ env.repoVersionMajor }}
+            ${{ env.BASE_IMAGE }}:${{ env.repoVersionMajor }}
+            ${{ env.BASE_IMAGE }}:ubuntu-latest
             ${{ env.BASE_IMAGE }}:latest
 
       ###########################
@@ -109,12 +125,19 @@ jobs:
         with:
           context: .
           file: hub/Dockerfile
-          build-args: baseImage=${{ env.BASE_IMAGE }}:${{ steps.latest.outputs.tag }}
+          build-args: |
+            baseImage=${{ env.BASE_IMAGE }}:${{ env.repoVersionFull }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           push: true
           tags: |
-            ${{ env.HUB_IMAGE }}:${{ steps.latest.outputs.tag }}
+            ${{ env.HUB_IMAGE }}:ubuntu-${{ env.repoVersionFull }}
+            ${{ env.HUB_IMAGE }}:${{ env.repoVersionFull }}
+            ${{ env.HUB_IMAGE }}:ubuntu-${{ env.repoVersionMinor }}
+            ${{ env.HUB_IMAGE }}:${{ env.repoVersionMinor }}
+            ${{ env.HUB_IMAGE }}:ubuntu-${{ env.repoVersionMajor }}
+            ${{ env.HUB_IMAGE }}:${{ env.repoVersionMajor }}
+            ${{ env.HUB_IMAGE }}:ubuntu-latest
             ${{ env.HUB_IMAGE }}:latest
 
   ###########################
@@ -123,8 +146,12 @@ jobs:
   dispatch-build-eitor:
     name: "🚀 Dispatch 'Build Editor' (${{ matrix.module }})"
     needs: build
-    if: needs.build.outputs.skip != 'true'
     runs-on: ubuntu-18.04
+    env:
+      releaseTag: ${{ needs.build.outputs.releaseTag }}
+      repoVersionFull: ${{ needs.build.outputs.repoVersionFull }}
+      repoVersionMinor: ${{ needs.build.outputs.repoVersionMinor }}
+      repoVersionMajor: ${{ needs.build.outputs.repoVersionMajor }}
     strategy:
       fail-fast: false
       matrix:
@@ -134,21 +161,15 @@ jobs:
       ###########################
       #   Setup build matrix    #
       ###########################
-      - name: Get latest tag
-        uses: oprypin/find-latest-tag@v1
-        id: latest
-        with:
-          repository: ${{ github.repository }}
       - name: Setup build matrix
         id: setup
         run: |
           # If all the combination tags to be built are existed in the registry: steps.setup.outputs.skip=true
-          MODULE=${{ matrix.module }}
-          LATEST_TAG=${{ steps.latest.outputs.tag }}
+          module=${{ matrix.module }}
 
           echo "======== Exist tags ========"
           echo '' > .existtags
-          skopeo list-tags docker://${EDITOR_IMAGE} | jq -r '.Tags[]' | grep -e "-${LATEST_TAG}$" > .existtags || :
+          skopeo list-tags docker://${EDITOR_IMAGE} | jq -r '.Tags[]' | grep -v '^ubuntu' | grep -e "-$module-$repoVersionFull$" > .existtags || :
           cat .existtags
 
           echo "======== Excluded image tags ========"
@@ -165,8 +186,8 @@ jobs:
 
           echo "======== Unity versions to build ========"
           UNITY_VERSIONS_TO_BUILD=`for version in $(echo "$AVAILABLE_UNITY_VERSIONS") ; do \
-              [ -z "$(grep -x $version-$MODULE-$LATEST_TAG .existtags)" ] \
-              && [ -z "$(echo $version-$MODULE-$LATEST_TAG | grep -f .excludedTags)" ] \
+              [ -z "$(grep -x $version-$module-$repoVersionFull .existtags)" ] \
+              && [ -z "$(echo $version-$module-$repoVersionFull | grep -f .excludedTags)" ] \
               && echo "$version" || : ; \
           done`
           [ -z "${UNITY_VERSIONS_TO_BUILD}" ] && echo "::warning::No versions to build." && echo "::set-output name=skip::true" || :
@@ -176,15 +197,17 @@ jobs:
 
           echo "======== Build matrix ========"
           echo "::set-output name=versions::$UNITY_VERSIONS_TO_BUILD"
+          echo "unityVersionsToBuild=\"$UNITY_VERSIONS_TO_BUILD\"" >> $GITHUB_ENV
 
       ###########################
       #  Dispatch build editor  #
       ###########################
       - name: "🚀 Dispatch 'Build Editor'"
-        if: steps.setup.outputs.skip != 'true'
+        # If there is no version to be built, the build will be skipped.
+        if: steps.setup.outputs.skip != 'true' && false
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: Build Editor
           token: ${{ secrets.GH_WORKFLOW_TOKEN }}
-          inputs: '{ "versions": ${{ steps.setup.outputs.versions }}, "module": "${{ matrix.module }}", "tag": "${{ steps.latest.outputs.tag }}" }'
+          inputs: '{ "versions": ${{ env.unityVersionsToBuild }}, "module": "${{ matrix.module }}", "releaseTag": "${{ env.releaseTag }}", "repoVersionFull": "${{ env.repoVersionFull }}", "repoVersionMinor": "${{ env.repoVersionMinor }}", "repoVersionMajor": "${{ env.repoVersionMajor }}" }'
           ref: ${{ github.ref }}
