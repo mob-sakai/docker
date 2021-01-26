@@ -4,8 +4,7 @@ name: CI
 
 # Controls when the action will run. 
 on:
-  pull_request:
-  workflow_dispatch:
+  pull_request_target:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -24,12 +23,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
-
       # Runs a set of commands using the runners shell
       - name: Run a multi-line script
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          git checkout refs/pull/6/merge -- editor/Dockerfile base/Dockerfile hub/Dockerfile
