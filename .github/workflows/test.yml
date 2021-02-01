@@ -10,10 +10,10 @@ on:
       - .github/workflows/test.yml
       - "reference-project-test/**"
   pull_request_target:
-    paths:
-      - "**/Dockerfile"
-      - "reference-project-test/**"
-      - "**.sh"
+#     paths:
+#       - "**/Dockerfile"
+#       - "reference-project-test/**"
+#       - "**.sh"
 
 jobs:
   ###########################
@@ -31,14 +31,14 @@ jobs:
       ###########################
       - uses: actions/checkout@v2
       - name: Checkout pull request (for testing)
-        if: github.event.event_type == 'pull_request_target'
+        if: github.event_name == 'pull_request_target'
         run: |
           # Checkout the minimum files needed to test from the merge commit.
           # NOTE: There is a vulnerability in the pull_request_target event.
           #       The files that the workflow depends on (e.g. shellscript) MUST NOT be checked out of the merge commit.
           #       https://securitylab.github.com/research/github-actions-preventing-pwn-requests
           git fetch origin '+refs/pull/*:refs/remotes/pr/*'
-          git checkout pr/${{ github.event.number }}/merge -- */Dockerfile
+          git checkout pr/${{ github.event.number }}/merge
           git diff
 
       ###########################
@@ -139,14 +139,14 @@ jobs:
       ###########################
       - uses: actions/checkout@v2
       - name: Checkout pull request (for testing)
-        if: github.event.event_type == 'pull_request_target'
+        if: github.event_name == 'pull_request_target'
         run: |
           # Checkout the minimum files needed to test from the merge commit.
           # NOTE: There is a vulnerability in the pull_request_target event.
           #       The files that the workflow depends on (e.g. shellscript) MUST NOT be checked out of the merge commit.
           #       https://securitylab.github.com/research/github-actions-preventing-pwn-requests
           git fetch origin '+refs/pull/*:refs/remotes/pr/*'
-          git checkout pr/${{ github.event.number }}/merge -- */Dockerfile
+          git checkout pr/${{ github.event.number }}/merge
           git diff
 
       ###########################
