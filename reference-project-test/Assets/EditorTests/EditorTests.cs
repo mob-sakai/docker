@@ -10,7 +10,7 @@ namespace Tests
         [Test]
         public void NewTestScriptSimplePasses()
         {
-          
+          //
             var sb = new System.Text.StringBuilder();
             foreach (System.Collections.Generic.KeyValuePair<string,string> pair in System.Environment.GetEnvironmentVariables())
             {
