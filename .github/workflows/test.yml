@@ -8,11 +8,12 @@ on:
     paths:
       - "**/Dockerfile"
       - .github/workflows/test.yml
-      - reference-project-test/*
+      - "reference-project-test/**"
   pull_request_target:
     paths:
       - "**/Dockerfile"
-      - reference-project-test/*
+      - "reference-project-test/**"
+      - "**.sh"
 
 jobs:
   ###########################
