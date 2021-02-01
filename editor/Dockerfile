@@ -37,7 +37,7 @@ RUN echo $version > "$UNITY_PATH/version"
 # Alias to "unity-editor" with default params
 RUN { \
     echo '#!/bin/bash'; \
-    echo ''; \
+    echo 'printenv'; \
     \
     [ `echo $version-$module | grep -e '^2019.3.*-linux-il2cpp'` ] \
         && echo '# [2019.3.x-linux-il2cpp] https://forum.unity.com/threads/unity-2019-3-linux-il2cpp-player-can-only-be-built-with-linux-error.822210/#post-5633977' \
