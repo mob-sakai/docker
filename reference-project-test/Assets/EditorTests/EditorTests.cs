@@ -11,6 +11,13 @@ namespace Tests
         public void NewTestScriptSimplePasses()
         {
             // Use the Assert class to test conditions
+          
+            var sb = new System.Text.StringBuilder();
+            foreach (System.Collections.Generic.KeyValuePair<string,string> pair in System.Environment.GetEnvironmentVariables())
+            {
+                sb.AppendLine(pair.Key + "=" + pair.Value);
+            }
+            UnityEngine.Debug.Log(sb);
         }
 
         // A UnityTest behaves like a coroutine in Play Mode. In Edit Mode you can use
