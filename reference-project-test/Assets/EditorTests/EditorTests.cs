@@ -10,6 +10,13 @@ namespace Tests
         [Test]
         public void NewTestScriptSimplePasses()
         {
+          
+            var sb = new System.Text.StringBuilder();
+            foreach (System.Collections.Generic.KeyValuePair<string,string> pair in System.Environment.GetEnvironmentVariables())
+            {
+                sb.AppendLine(pair.Key + "=" + pair.Value);
+            }
+            UnityEngine.Debug.Log(sb);
             // Use the Assert class to test conditions
         }
 
