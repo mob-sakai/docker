@@ -6,6 +6,8 @@ echo "==========================================================================
 echo "Freeing up disk space on CI system"
 echo "=============================================================================="
 
+printenv
+
 # Before
 echo "Disk space before:"
 df -h
