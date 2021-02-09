@@ -1,0 +1,27 @@
+name: release
+
+on:
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - "**"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: cycjimmy/semantic-release-action@v2
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Dispatch 'Build All 🛠️' workflow
+        if: steps.release.outputs.new_release_published == 'true'
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "Build All 🛠️"
+          token: ${{ secrets.GH_WORKFLOW_TOKEN }}
+          ref: v${{ steps.release.outputs.new_release_version }}
