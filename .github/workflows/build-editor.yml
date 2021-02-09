@@ -1,0 +1,162 @@
+# Build editor images for a Unity module
+# ========================================================
+#
+# - Check out latest release and build `editor`.
+#   - The existed image tag building will be skipped.
+#   - Use `skopeo` to check for the existence of tags.
+# - Use `unity-changeset` to get the changeset for a Unity version.
+# - Remove large directories before building.
+# - This workflow is dispatched from the 'Build All' workflow.
+# - Jobs sometimes fail due to timeouts or docker errors.
+#
+# [Settings]
+#   DOCKER_REGISTRY: Docker registry (Docker Hub: docker.io, GitHub Container Registory: ghcr.io, Google Container Registory: gcr.io, etc.)
+#   DOCKER_USERNAME: Docker username
+#   BASE_IMAGE_ID:   Base image ID
+#   HUB_IMAGE_ID:    Hub image ID
+#   EDITOR_IMAGE_ID: Editor image ID
+#
+# [Required secrets]
+#   DOCKER_PASSWORD: Docker password/token
+name: "Build Editor 🛠️"
+
+on:
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: "Unity versions to build (json array)"
+        required: true
+        default: '[ "2018.4.30f1" ]'
+      module:
+        description: "An Unity module to build.\n(base|linux-il2cpp|windows-mono|mac-mono|ios|android|webgl)"
+        required: true
+        default: "base"
+      releaseTag:
+        description: "Release tag"
+        required: true
+        default: "v1.2.3"
+      dryRun:
+        description: "dryRun: Skip the image build and push"
+        required: true
+        default: "true"
+
+env:
+  DOCKER_REGISTRY: docker.io # Docker registry (Docker Hub: docker.io, GitHub Container Registory: ghcr.io, Google Container Registory: gcr.io, etc.)
+  DOCKER_USERNAME: mobsakai # Docker username
+  BASE_IMAGE_ID: docker.io/mobsakai/unity_base # Base image ID
+  HUB_IMAGE_ID: docker.io/mobsakai/unity_hub # Hub image ID
+  EDITOR_IMAGE_ID: docker.io/mobsakai/unity_editor # Editor image ID
+
+jobs:
+  build:
+    name: Build ${{ matrix.version }} ${{ github.event.inputs.module }}
+    runs-on: ubuntu-18.04
+    env:
+      module: ${{ github.event.inputs.module }}
+      releaseTag: ${{ github.event.inputs.releaseTag }}
+      dryRun: ${{ github.event.inputs.dryRun }}
+    strategy:
+      max-parallel: 4
+      fail-fast: false
+      matrix:
+        version: ${{ fromJson(github.event.inputs.versions) }}
+    steps:
+      ###########################
+      #    Checkout release     #
+      ###########################
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ env.releaseTag }}
+      - name: "🔍 Get repo versions"
+        id: versions
+        run: |
+          MAJOR=`echo ${{ env.releaseTag }} | tr -d 'v' | cut -d '.' -f 1`
+          MINOR=`echo ${{ env.releaseTag }} | tr -d 'v' | cut -d '.' -f 2`
+          PATCH=`echo ${{ env.releaseTag }} | tr -d 'v' | cut -d '.' -f 3`
+
+          echo "releaseTag=$releaseTag" >> $GITHUB_ENV
+          echo "repoVersionFull=${MAJOR:-0}.${MINOR:-0}.${PATCH:-0}" >> $GITHUB_ENV
+          echo "repoVersionMinor=${MAJOR:-0}.${MINOR:-0}" >> $GITHUB_ENV
+          echo "repoVersionMajor=${MAJOR:-0}" >> $GITHUB_ENV
+
+      ###########################
+      #          Setup          #
+      ###########################
+      - uses: docker/login-action@v1
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - uses: docker/setup-qemu-action@v1
+      - uses: docker/setup-buildx-action@v1
+      - name: "⚙️ Setup"
+        timeout-minutes: 10
+        run: |
+          # If the image tag already exists, skip the build
+          [ -n "`skopeo list-tags docker://${{ env.EDITOR_IMAGE_ID }} | jq -r '.Tags[]' | grep -x '${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionFull }}' || :`" ] && echo "The tag already exists" && exit 1 || :
+
+          # The Changeset for unity version
+          echo "changeSet=`npx unity-changeset ${{ matrix.version }}`" >> $GITHUB_ENV
+
+          # Free disk space
+          .github/workflows/scripts/free_disk_space.sh
+
+      ###########################
+      # Build and push (Editor) #
+      ###########################
+      - name: "🛠️ Build and push (Editor)"
+        uses: docker/build-push-action@v2
+        if: env.dryRun != 'true' # && steps.build-1.outcome == 'failure'
+        id: build-1
+        continue-on-error: true
+        timeout-minutes: 40
+        with:
+          context: .
+          file: editor/Dockerfile
+          build-args: |
+            baseImage=${{ env.BASE_IMAGE_ID }}:${{ env.repoVersionFull }}
+            hubImage=${{ env.HUB_IMAGE_ID }}:${{ env.repoVersionFull }}
+            version=${{ matrix.version }}
+            changeSet=${{ env.changeSet }}
+            module=${{ env.module }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          push: true
+          tags: |
+            ${{ env.EDITOR_IMAGE_ID }}:${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionFull }}
+            ${{ env.EDITOR_IMAGE_ID }}:ubuntu-${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionFull }}
+            ${{ env.EDITOR_IMAGE_ID }}:${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionMinor }}
+            ${{ env.EDITOR_IMAGE_ID }}:ubuntu-${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionMinor }}
+            ${{ env.EDITOR_IMAGE_ID }}:${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionMajor }}
+            ${{ env.EDITOR_IMAGE_ID }}:ubuntu-${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionMajor }}
+
+      ###########################
+      #          Retry          #
+      ###########################
+      - run: sleep 300
+        if: env.dryRun != 'true' && steps.build-1.outcome == 'failure'
+      - name: "🛠️ Build and push (Editor, retry)"
+        uses: docker/build-push-action@v2
+        if: env.dryRun != 'true' && steps.build-1.outcome == 'failure'
+        id: build-2
+        # continue-on-error: true
+        timeout-minutes: 40
+        with:
+          context: .
+          file: editor/Dockerfile
+          build-args: |
+            baseImage=${{ env.BASE_IMAGE_ID }}:${{ env.repoVersionFull }}
+            hubImage=${{ env.HUB_IMAGE_ID }}:${{ env.repoVersionFull }}
+            version=${{ matrix.version }}
+            changeSet=${{ env.changeSet }}
+            module=${{ env.module }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          push: true
+          tags: |
+            ${{ env.EDITOR_IMAGE_ID }}:${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionFull }}
+            ${{ env.EDITOR_IMAGE_ID }}:ubuntu-${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionFull }}
+            ${{ env.EDITOR_IMAGE_ID }}:${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionMinor }}
+            ${{ env.EDITOR_IMAGE_ID }}:ubuntu-${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionMinor }}
+            ${{ env.EDITOR_IMAGE_ID }}:${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionMajor }}
+            ${{ env.EDITOR_IMAGE_ID }}:ubuntu-${{ matrix.version }}-${{ env.module }}-${{ env.repoVersionMajor }}

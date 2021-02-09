@@ -1,0 +1,256 @@
+# Build all images for latest release (serverless)
+# ========================================================
+#
+# - Check out latest release and build `base` and `hub`.
+#   - The existed image tag building will be skipped.
+#   - Use `skopeo` to check for the existence of tags.
+# - After `base` and `hub` images are built, the workflow to build the editor image will be dispatched on a per-module basis for readability.
+#   * Build All (build base and hub)
+#     * (dispatch) -> Build Editor (base, [2018.3.1f1, 2018.3.2f1, ...])
+#     * (dispatch) -> Build Editor (linux-il2cpp, [2018.3.1f1, 2018.3.2f1, ...])
+#     ...
+#     * (dispatch) -> Build Editor (webgl, [2018.3.1f1, 2018.3.2f1, ...])
+# - This workflow lists the available　Unity versions without a versioning server.
+#   - Use `unity-changeset` to get the available Unity versions.
+#   - As workflow settings, you can specify the minimum Unity version and the excluded Unity versions/module.
+# - The build workflows for a new release takes about a day.
+#   - If no new build is needed, it will take about 5 minutes.
+# - This workflow will run on release new version.
+# - This workflow will run daily to build for a new Unity version or to rebuild.
+#   - If other build workflows ('Build All' or 'Build Editor') are in progress or queued, this workflow will be skipped.
+#   - 'Build Editor' workflow may fail with a timeout or a docker error, but in most cases the rebuild will succeed.
+#
+# [Settings]
+#   DOCKER_REGISTRY:        Docker registry (Docker Hub: docker.io, GitHub Container Registory: ghcr.io, Google Container Registory: gcr.io, etc.)
+#   DOCKER_USERNAME:        Docker username
+#   BASE_IMAGE_ID:          Base image ID
+#   HUB_IMAGE_ID:           Hub image ID
+#   EDITOR_IMAGE_ID:        Editor image ID
+#   MINIMUM_UNITY_VERSION:  Minimum Unity version to build
+#   INCLUDE_BETA_VERSIONS:  Include alpha/beta versions?
+#   EXCLUDE_IMAGE_TAGS:     Excluded image tags (Regular expressions)
+#
+# [Required secrets]
+#   DOCKER_PASSWORD:        DockerHub password to login
+#   GH_WORKFLOW_TOKEN:      Github parsonal access token (repo:write) to dispatch workflow
+name: "Build All 🛠️"
+
+on:
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: "dryRun: Skip the image build and push."
+        required: true
+        default: "false"
+  release:
+  schedule:
+    - cron: "0 0 * * *" # daily
+
+env:
+  DOCKER_REGISTRY: docker.io # Docker registry (Docker Hub: docker.io, GitHub Container Registory: ghcr.io, Google Container Registory: gcr.io, etc.)
+  DOCKER_USERNAME: mobsakai # Docker username
+  BASE_IMAGE_ID: docker.io/mobsakai/unity_base # Base image ID
+  HUB_IMAGE_ID: docker.io/mobsakai/unity_hub # Hub image ID
+  EDITOR_IMAGE_ID: docker.io/mobsakai/unity_editor # Editor image ID
+  # ================= Unity version settings =================
+  MINIMUM_UNITY_VERSION: "2018.3" # Minimum Unity version to build
+  INCLUDE_BETA_VERSIONS: true # Include alpha/beta versions?
+  EXCLUDE_IMAGE_TAGS: | # Excluded image tags (Regular expressions)
+    2018.*-linux-il2cpp
+    2019.1.*-linux-il2cpp
+    2019.2.*-linux-il2cpp
+    2021.1.0a
+
+jobs:
+  build:
+    name: "Build base and hub"
+    runs-on: ubuntu-18.04
+    env:
+      dryRun: ${{ github.event.inputs.dryRun }}
+    outputs:
+      releaseTag: ${{ env.releaseTag }}
+      repoVersionFull: ${{ env.repoVersionFull }}
+      repoVersionMinor: ${{ env.repoVersionMinor }}
+      repoVersionMajor: ${{ env.repoVersionMajor }}
+    steps:
+      ###########################
+      #  Check build workflows  #
+      ###########################
+      - name: "🔍 Check other build workflows"
+        id: check
+        run: |
+          # Get in-progress or queued workflows.
+          gh auth login --with-token < <(echo ${{ github.token }})
+          RUNNING_WORKFLOWS=`gh api -X GET /repos/${{ github.repository }}/actions/runs | jq -c '[ .workflow_runs[] | select(.status | test("in_progress|queued")) | .name ]'`
+          echo "======== Running Workflows ========"
+          echo "$RUNNING_WORKFLOWS"
+
+          # [ERROR] Any 'Build Editor' workflow is in progress.
+          [ 0 -lt `echo $RUNNING_WORKFLOWS | jq '[ .[] | select ( . == "Build Editor" ) ] | length'` ] && echo "::error::Any 'Build Editor' workflow is running." && exit 1 || :
+
+          # [ERROR] Other 'Build All' workflow is in progress.
+          [ 1 -lt `echo $RUNNING_WORKFLOWS | jq '[ .[] | select ( . == "Build All" ) ] | length'` ] && echo "::error::Other 'Build All' workflow is running." && exit 1 || :
+
+      ###########################
+      # Checkout latest release #
+      ###########################
+      - uses: pozetroninc/github-action-get-latest-release@master
+        id: latest
+        with:
+          repository: ${{ github.repository }}
+          excludes: prerelease, draft
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ steps.latest.outputs.release }}
+      - name: "🔍 Get repo versions"
+        id: versions
+        run: |
+          releaseTag=${{ steps.latest.outputs.release }}
+          MAJOR=`echo $releaseTag | tr -d 'v' | cut -d '.' -f 1`
+          MINOR=`echo $releaseTag | tr -d 'v' | cut -d '.' -f 2`
+          PATCH=`echo $releaseTag | tr -d 'v' | cut -d '.' -f 3`
+
+          echo "releaseTag=$releaseTag" >> $GITHUB_ENV
+          echo "repoVersionFull=${MAJOR:-0}.${MINOR:-0}.${PATCH:-0}" >> $GITHUB_ENV
+          echo "repoVersionMinor=${MAJOR:-0}.${MINOR:-0}" >> $GITHUB_ENV
+          echo "repoVersionMajor=${MAJOR:-0}" >> $GITHUB_ENV
+
+      ###########################
+      #          Setup          #
+      ###########################
+      - uses: docker/setup-qemu-action@v1
+      - uses: docker/setup-buildx-action@v1
+      - uses: docker/login-action@v1
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: "⚙️ Setup"
+        id: setup
+        run: |
+          # If the image tag already exists, skip the build. (base)
+          [ -n "`skopeo list-tags docker://${{ env.BASE_IMAGE_ID }} | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}' || :`" ] && echo "::set-output name=base_skip::true" && echo "skip build (base)" || :
+
+          # If the image tag already exists, skip the build. (hub)
+          [ -n "`skopeo list-tags docker://${{ env.HUB_IMAGE_ID }}  | jq -r '.Tags[]' | grep -x '${{ env.repoVersionFull }}' || :`" ] && echo "::set-output name=hub_skip::true"  && echo "skip build (hub)" || :
+
+      ###########################
+      #  Build and push (Base)  #
+      ###########################
+      - name: "🛠️ Build and push (Base)"
+        if: steps.setup.outputs.base_skip != 'true' && env.dryRun != 'true'
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: base/Dockerfile
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          push: true
+          tags: |
+            ${{ env.BASE_IMAGE_ID }}:ubuntu-${{ env.repoVersionFull }}
+            ${{ env.BASE_IMAGE_ID }}:${{ env.repoVersionFull }}
+            ${{ env.BASE_IMAGE_ID }}:ubuntu-${{ env.repoVersionMinor }}
+            ${{ env.BASE_IMAGE_ID }}:${{ env.repoVersionMinor }}
+            ${{ env.BASE_IMAGE_ID }}:ubuntu-${{ env.repoVersionMajor }}
+            ${{ env.BASE_IMAGE_ID }}:${{ env.repoVersionMajor }}
+            ${{ env.BASE_IMAGE_ID }}:ubuntu-latest
+            ${{ env.BASE_IMAGE_ID }}:latest
+
+      ###########################
+      #  Build and push (Hub)   #
+      ###########################
+      - name: "🛠️ Build and push (Hub)"
+        if: steps.setup.outputs.hub_skip != 'true' && env.dryRun != 'true'
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: hub/Dockerfile
+          build-args: |
+            baseImage=${{ env.BASE_IMAGE_ID }}:${{ env.repoVersionFull }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          push: true
+          tags: |
+            ${{ env.HUB_IMAGE_ID }}:ubuntu-${{ env.repoVersionFull }}
+            ${{ env.HUB_IMAGE_ID }}:${{ env.repoVersionFull }}
+            ${{ env.HUB_IMAGE_ID }}:ubuntu-${{ env.repoVersionMinor }}
+            ${{ env.HUB_IMAGE_ID }}:${{ env.repoVersionMinor }}
+            ${{ env.HUB_IMAGE_ID }}:ubuntu-${{ env.repoVersionMajor }}
+            ${{ env.HUB_IMAGE_ID }}:${{ env.repoVersionMajor }}
+            ${{ env.HUB_IMAGE_ID }}:ubuntu-latest
+            ${{ env.HUB_IMAGE_ID }}:latest
+
+  ###########################
+  #  Dispatch build editor  #
+  ###########################
+  dispatch-build-eitor:
+    name: "🚀 Dispatch 'Build Editor' (${{ matrix.module }})"
+    needs: build
+    runs-on: ubuntu-18.04
+    env:
+      dryRun: ${{ github.event.inputs.dryRun }}
+      releaseTag: ${{ needs.build.outputs.releaseTag }}
+      repoVersionFull: ${{ needs.build.outputs.repoVersionFull }}
+      repoVersionMinor: ${{ needs.build.outputs.repoVersionMinor }}
+      repoVersionMajor: ${{ needs.build.outputs.repoVersionMajor }}
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - base
+          - linux-il2cpp
+          - windows-mono
+          - mac-mono
+          - ios
+          - android
+          - webgl
+    steps:
+      ###########################
+      #          Setup          #
+      ###########################
+      - uses: docker/login-action@v1
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: "⚙️ Setup"
+        id: setup
+        run: |
+          # If all the combination tags to be built are existed in the registry -> steps.setup.outputs.skip=true
+
+          echo "======== Exist tags ========"
+          echo '' > .existtags
+          skopeo list-tags docker://${{ env.EDITOR_IMAGE_ID }} | jq -r '.Tags[]' | grep -v '^ubuntu' | grep -e "-${{ matrix.module }}-${{ env.repoVersionFull }}$" | tee .existtags || :
+
+          echo "======== Excluded image tags ========"
+          echo -n "${{ env.EXCLUDE_IMAGE_TAGS }}" | grep '.' | tee .excludedTags
+
+          echo "======== Available Unity versions ========"
+          [ "${{ env.INCLUDE_BETA_VERSIONS }}" = 'true' ] && OPT='--all' || OPT=''
+          npx unity-changeset list --versions --min ${{ env.MINIMUM_UNITY_VERSION }} ${OPT} | tee .unityVersions
+
+          echo "======== Unity versions to build ========"
+          UNITY_VERSIONS_TO_BUILD=`for version in $(cat .unityVersions) ; do \
+              [ -z "$(grep -x ${version}-${{ matrix.module }}-${{ env.repoVersionFull }} .existtags)" ] \
+              && [ -z "$(echo ${version}-${{ matrix.module }}-${{ env.repoVersionFull }} | grep -f .excludedTags)" ] \
+              && echo "${version}" || : ; \
+          done`
+          [ -z "${UNITY_VERSIONS_TO_BUILD}" ] && echo "::warning::No versions to build." && echo "::set-output name=skip::true" || :
+
+          echo "======== Output ========"
+          VERSIONS_JSON=`echo "${UNITY_VERSIONS_TO_BUILD}" | jq -R '.' | jq -s -c '.' | jq -R '.' || echo '[]'`
+          echo "${VERSIONS_JSON}"
+          echo "::set-output name=versions::${VERSIONS_JSON}"
+
+      ###########################
+      #  Dispatch build editor  #
+      ###########################
+      - name: "🚀 Dispatch 'Build Editor'"
+        # If there is no version to be built, the build will be skipped.
+        if: steps.setup.outputs.skip != 'true'
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "Build Editor 🛠️"
+          token: ${{ secrets.GH_WORKFLOW_TOKEN }}
+          inputs: '{ "versions": ${{ steps.setup.outputs.versions }}, "module": "${{ matrix.module }}", "releaseTag": "${{ env.releaseTag }}", "dryRun": "${{ env.dryRun }}" }'
+          ref: ${{ github.ref }}
