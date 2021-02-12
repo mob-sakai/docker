@@ -38,7 +38,7 @@ on:
       dryRun:
         description: "dryRun: Skip the image build and push"
         required: true
-        default: "true"
+        default: "false"
 
 env:
   DOCKER_REGISTRY: docker.io # Docker registry (Docker Hub: docker.io, GitHub Container Registory: ghcr.io, Google Container Registory: gcr.io, etc.)
