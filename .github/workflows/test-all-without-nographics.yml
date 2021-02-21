@@ -28,12 +28,12 @@ jobs:
       matrix:
         module:
           - base
-          - linux-il2cpp
-          - windows-mono
-          - mac-mono
-          - ios
-          - android
-          - webgl
+          # - linux-il2cpp
+          # - windows-mono
+          # - mac-mono
+          # - ios
+          # - android
+          # - webgl
     steps:
       - name: "⚙️ Setup"
         id: setup
@@ -41,6 +41,7 @@ jobs:
           skopeo list-tags docker://unityci/editor \
             | jq -r '.Tags[]' \
             | grep -v '\(ubuntu\|2018.2\)' \
+            | grep -e '2020.1' \
             | grep -e '-${{ matrix.module }}-${{ github.event.inputs.tag }}$' \
             | jq -R '.' \
             | jq -s -c '.' \
@@ -63,7 +64,7 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
       fail-fast: false
-      max-parallel: 5
+      # max-parallel: 5
       matrix:
         tag: ${{ fromJson(github.event.inputs.tag) }}
         module:
@@ -102,6 +103,19 @@ jobs:
           echo "version=`echo ${{ matrix.tag }} | cut -d '-' -f 1`" >> $GITHUB_ENV
 
       ###########################
+      #       Build Image       #
+      ###########################
+      - name: "Build Image"
+        run: |
+          docker build -t editor:dev -f- . <<EOF
+          FROM unityci/editor:${{ matrix.tag }}
+          RUN apt-get -q update && apt-get -q install -y --no-install-recommends --allow-downgrades libnotify4
+          EOF
+
+          echo "==== unity-editor"
+          docker run --rm editor:dev cat /usr/bin/unity-editor
+
+      ###########################
       #          Build          #
       ###########################
       - name: Build project
@@ -110,7 +124,7 @@ jobs:
         uses: mob-sakai/unity-builder@without_nographics
         with:
           unityVersion: ${{ env.version }}
-          customImage: unityci/editor:${{ matrix.tag }}
+          customImage: editor:dev
           projectPath: reference-project-test
           targetPlatform: ${{ env.platform }}
           allowDirtyBuild: true
@@ -124,6 +138,6 @@ jobs:
         uses: game-ci/unity-test-runner@main
         with:
           unityVersion: ${{ env.version }}
-          customImage: unityci/editor:${{ matrix.tag }}
+          customImage: editor:dev
           projectPath: reference-project-test
           customParameters: -buildTarget ${{ env.platform }}
