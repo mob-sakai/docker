@@ -6,6 +6,7 @@ on:
 jobs:
   updateDescriptions:
     name: "📚 Update ${{ matrix.imageType }} description on dockerhub"
+    if: ${{ !always() }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

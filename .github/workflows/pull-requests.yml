@@ -6,6 +6,7 @@ on:
 jobs:
   reportingTest:
     name: "🧪 Test reporting system (${{ matrix.imageType }})"
+    if: ${{ !always() }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -74,6 +75,7 @@ jobs:
 
   build:
     name: "🧪 Test build (${{ matrix.targetPlatform }})"
+    if: ${{ !always() }}
     runs-on: ubuntu-latest
     services:
       registry:
@@ -216,6 +218,7 @@ jobs:
 
   testImages:
     name: 🧪 Test images
+    if: ${{ !always() }}
     needs: [ build ]
     runs-on: ubuntu-latest
     steps:
