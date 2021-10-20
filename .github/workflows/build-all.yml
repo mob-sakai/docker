@@ -43,6 +43,7 @@ env:
     2018.*-linux-il2cpp
     2019.1.*-linux-il2cpp
     2019.2.*-linux-il2cpp
+    <<AUTO_IGNORED_IMAGE_TAGS>>
 
 on:
   repository_dispatch:

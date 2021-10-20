@@ -1,0 +1,68 @@
+# Build editor images for a Unity module
+# ========================================================
+#
+# - Check out latest release and build `editor`.
+#   - The existed image tag building will be skipped.
+#   - Use `skopeo` to check for the existence of tags.
+# - Use `unity-changeset` to get the changeset for a Unity version.
+# - Remove large directories before building.
+# - This workflow is dispatched from the 'Build All' workflow.
+# - Jobs sometimes fail due to timeouts or docker errors.
+#
+# [Required secrets]
+#   DOCKER_PASSWORD: Docker password/token
+name: "Build Failed 🛠️"
+
+env:
+  # ================= Registry settings =================
+  DOCKER_REGISTRY: docker.io    # Docker Hub
+# DOCKER_REGISTRY: ghcr.io      # GitHub Container Registry
+# DOCKER_REGISTRY: gcr.io       # Google Container Registry
+  # ================ Repository settings ================
+  BASE_IMAGE_REPOSITORY: mobsakai/unity3d_base  # Base image name
+  HUB_IMAGE_REPOSITORY: mobsakai/unity3d_hub    # Hub image name
+  EDITOR_IMAGE_REPOSITORY: mobsakai/unity3d     # Editor image name
+  ISSUE_NUMBER: 19
+
+on:
+  workflow_dispatch:
+    inputs:
+      imageTag:
+        description: "The image tag that failed to build"
+        required: true
+        default: "2017.4.30f1-webgl-1.0.0"
+
+jobs:
+  comment:
+    name: Comment for the image tag '${{ github.event.inputs.imageTag }}'
+    runs-on: ubuntu-latest
+    outputs:
+      comment-id: steps.fc.outputs.comment-id
+    steps:
+      - name: Find Comment
+        uses: peter-evans/find-comment@v1
+        id: fc
+        with:
+          issue-number: ${{ env.ISSUE_NUMBER }}
+          body-includes: ${{ github.event.inputs.imageTag }}
+
+      - name: Create comment
+        if: steps.fc.outputs.comment-id == ''
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          issue-number: ${{ env.ISSUE_NUMBER }}
+          token: ${{ secrets.GH_WORKFLOW_TOKEN }}
+          body: |
+            The build '${{ github.event.inputs.imageTag }}' failed.
+            If it fails again, it will be added to the ignore list.
+
+  ignore:
+    name: Ignore the image tag '${{ github.event.inputs.imageTag }}' for workflow
+    needs: comment
+    if: needs.comment.outputs.comment-id != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          sed -i -e "s/<<AUTO_IGNORED_IMAGE_TAGS>>/&\\n    ${{ github.event.inputs.imageTag }}/" .github/workflows/build-all.yml
+      - uses: stefanzweifel/git-auto-commit-action@v4
