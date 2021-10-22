@@ -18,7 +18,7 @@ env:
   # ================= Build settings =================
   UBUNTU_IMAGE: ubuntu:18.04    # Ubuntu image ID
   MINIMUM_UNITY_VERSION: 2018.3 # Minimum Unity version to build
-  INCLUDE_BETA_VERSIONS: false   # Include alpha/beta versions?
+  INCLUDE_BETA_VERSIONS: true   # Include alpha/beta versions?
 
 jobs:
   ###########################
