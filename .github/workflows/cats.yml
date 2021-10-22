@@ -9,6 +9,7 @@ on:
 jobs:
   aCatForCreatingThePullRequest:
     name: A cat for your effort!
+    if: ${{ !always() }}
     runs-on: ubuntu-latest
     steps:
       - uses: ruairidhwm/action-cats@1.0.1

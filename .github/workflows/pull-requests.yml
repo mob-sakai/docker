@@ -6,6 +6,7 @@ on:
 jobs:
   reportingTest:
     name: "🧪 Test reporting system (${{ matrix.imageType }})"
+    if: ${{ !always() }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
