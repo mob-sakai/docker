@@ -63,6 +63,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        id: co
+        continue-on-error: true
+        with:
+          ref: ignored-tags
+      - uses: actions/checkout@v2
+        if: steps.co.outcome == 'failure'
       - run: |
           echo ${{ needs.comment.outputs.already-commented }}
           sed -i -e "s/<<AUTO_IGNORED_IMAGE_TAGS>>/&\\n    ${{ github.event.inputs.imageTag }}/" .github/workflows/build-all.yml
@@ -93,6 +99,7 @@ jobs:
           #   maintainers
           # milestone: 1
           # draft: false
+          base: main
 
       - name: Check outputs
         run: |
