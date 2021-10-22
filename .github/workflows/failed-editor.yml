@@ -38,6 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       comment-id: steps.fc.outputs.comment-id
+      commented: steps.fc.outputs.comment-id != ''
     steps:
       - name: Find Comment
         uses: peter-evans/find-comment@v1
@@ -48,6 +49,7 @@ jobs:
 
       - run: |
           echo id is ${{ steps.fc.outputs.comment-id }}.
+          echo id is ${{ steps.fc.outputs.comment-id != '' }}.
 
       - name: Create comment
         if: steps.fc.outputs.comment-id == ''
@@ -65,9 +67,13 @@ jobs:
     if: needs.comment.outputs.comment-id != ''
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
       - run: |
-          sed -i -e "s/<<AUTO_IGNORED_IMAGE_TAGS>>/&\\n    ${{ github.event.inputs.imageTag }}/" .github/workflows/build-all.yml
-      - uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          github_token: ${{ secrets.GH_WORKFLOW_TOKEN }}
+          echo id is ${{ steps.fc.outputs.comment-id }}.
+          echo id is ${{ steps.fc.outputs.commented }}.
+
+      # - uses: actions/checkout@v2
+      # - run: |
+      #     sed -i -e "s/<<AUTO_IGNORED_IMAGE_TAGS>>/&\\n    ${{ github.event.inputs.imageTag }}/" .github/workflows/build-all.yml
+      # - uses: stefanzweifel/git-auto-commit-action@v4
+      #   with:
+      #     github_token: ${{ secrets.GH_WORKFLOW_TOKEN }}
