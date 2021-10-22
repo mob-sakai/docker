@@ -37,8 +37,8 @@ jobs:
     name: Comment for the image tag '${{ github.event.inputs.imageTag }}'
     runs-on: ubuntu-latest
     outputs:
-      comment-id: steps.fc.outputs.comment-id
-      commented: steps.fc.outputs.comment-id != null
+      comment-id: ${{ steps.fc.outputs.comment-id }}
+      commented: ${{ steps.fc.outputs.comment-id != '' }}
     steps:
       - name: Find Comment
         uses: peter-evans/find-comment@v1
@@ -51,7 +51,7 @@ jobs:
           echo c.outputs is "${{ toJSON(steps.fc.outputs) }}".
 
       - name: Create comment
-        if: steps.fc.outputs.comment-id == null
+        if: steps.fc.outputs.comment-id == ''
         uses: peter-evans/create-or-update-comment@v1
         with:
           issue-number: ${{ env.ISSUE_NUMBER }}
@@ -63,7 +63,7 @@ jobs:
   ignore:
     name: Ignore the image tag '${{ github.event.inputs.imageTag }}' for workflow
     needs: comment
-    if: needs.comment.outputs.comment-id != null
+    # if: needs.comment.outputs.comment-id != null
     runs-on: ubuntu-latest
     steps:
       - run: |
