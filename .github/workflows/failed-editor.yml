@@ -83,7 +83,7 @@ jobs:
       - uses: peter-evans/create-pull-request@v3
         # if: steps.co.outcome == 'failure'
         with:
-          # token: ${{ secrets.GH_WORKFLOW_TOKEN }}
+          token: ${{ secrets.GH_WORKFLOW_TOKEN }}
           commit-message: Ignore ${{ github.event.inputs.imageTag }}
           # committer: GitHub <noreply@github.com>
           # author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
