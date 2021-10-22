@@ -184,3 +184,15 @@ jobs:
           push: true
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
+
+      ###########################
+      #  Dispatch build failed  #
+      ###########################
+      - name: "🚀 Dispatch 'Build Editor Failed'"
+        if: failure()
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "Build Editor Failed :x:"
+          token: ${{ secrets.GH_WORKFLOW_TOKEN }}
+          inputs: '{ "imageTag": "${{ matrix.version }}-${{ matrix.module }}-${{ env.repoVersion }}" }'
+          ref: ${{ github.ref }}
