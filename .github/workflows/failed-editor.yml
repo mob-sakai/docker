@@ -66,6 +66,7 @@ jobs:
         id: co
         continue-on-error: true
         with:
+          token: ${{ secrets.GH_WORKFLOW_TOKEN }}
           ref: ignored-tags
       - uses: actions/checkout@v2
         if: steps.co.outcome == 'failure'
