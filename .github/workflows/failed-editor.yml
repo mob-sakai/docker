@@ -46,6 +46,9 @@ jobs:
           issue-number: ${{ env.ISSUE_NUMBER }}
           body-includes: ${{ github.event.inputs.imageTag }}
 
+      - run: |
+          echo id is ${{ steps.fc.outputs.comment-id }}.
+
       - name: Create comment
         if: steps.fc.outputs.comment-id == ''
         uses: peter-evans/create-or-update-comment@v1
@@ -66,3 +69,5 @@ jobs:
       - run: |
           sed -i -e "s/<<AUTO_IGNORED_IMAGE_TAGS>>/&\\n    ${{ github.event.inputs.imageTag }}/" .github/workflows/build-all.yml
       - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          github_token: ${{ secrets.GH_WORKFLOW_TOKEN }}
