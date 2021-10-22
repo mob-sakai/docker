@@ -70,8 +70,9 @@ jobs:
       - uses: actions/checkout@v2
         if: steps.co.outcome == 'failure'
       - run: |
-          echo ${{ needs.comment.outputs.already-commented }}
-          sed -i -e "s/<<AUTO_IGNORED_IMAGE_TAGS>>/&\\n    ${{ github.event.inputs.imageTag }}/" .github/workflows/build-all.yml
+          if [ -z "$(cat .github/workflows/build-all.yml | grep ${{ github.event.inputs.imageTag }} )" ] ;then
+            sed -i -e "s/<<AUTO_IGNORED_IMAGE_TAGS>>/&\\n    ${{ github.event.inputs.imageTag }}/" .github/workflows/build-all.yml
+          fi
       - name: Create Pull Request
         id: cpr
         uses: peter-evans/create-pull-request@v3

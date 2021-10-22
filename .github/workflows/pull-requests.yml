@@ -75,6 +75,7 @@ jobs:
 
   build:
     name: "🧪 Test build (${{ matrix.targetPlatform }})"
+    if: ${{ !always() }}
     runs-on: ubuntu-latest
     services:
       registry:
@@ -217,6 +218,7 @@ jobs:
 
   testImages:
     name: 🧪 Test images
+    if: ${{ !always() }}
     needs: [ build ]
     runs-on: ubuntu-latest
     steps:
