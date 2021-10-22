@@ -44,6 +44,10 @@ env:
     2019.1.*-linux-il2cpp
     2019.2.*-linux-il2cpp
     <<AUTO_IGNORED_IMAGE_TAGS>>
+    2017.4.30f1-webgl-1.0.0
+    2017.4.31f1-webgl-1.0.0
+    2017.4.30f1-webgl-1.0.0
+    2017.4.31f1-webgl-1.0.0
 
 on:
   repository_dispatch:
