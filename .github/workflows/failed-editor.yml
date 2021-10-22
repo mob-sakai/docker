@@ -48,8 +48,7 @@ jobs:
           body-includes: ${{ github.event.inputs.imageTag }}
 
       - run: |
-          echo id is ${{ steps.fc.outputs.comment-id }}.
-          echo id is ${{ steps.fc.outputs.comment-id != '' }}.
+          echo c.outputs is "${{ toJSON(steps.fc.outputs) }}".
 
       - name: Create comment
         if: steps.fc.outputs.comment-id == ''
