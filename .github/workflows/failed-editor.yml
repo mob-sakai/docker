@@ -75,15 +75,15 @@ jobs:
             sed -i -e "s/<<AUTO_IGNORED_IMAGE_TAGS>>/&\\n    ${{ github.event.inputs.imageTag }}/" .github/workflows/build-all.yml
           fi
       
-      - uses: stefanzweifel/git-auto-commit-action@v4
-        if: steps.co.outcome == 'success'
-        with:
-          token: ${{ secrets.GH_WORKFLOW_TOKEN }}
+      # - uses: stefanzweifel/git-auto-commit-action@v4
+      #   if: steps.co.outcome == 'success'
+      #   with:
+      #     token: ${{ secrets.GH_WORKFLOW_TOKEN }}
 
       - uses: peter-evans/create-pull-request@v3
-        if: steps.co.outcome == 'failure'
+        # if: steps.co.outcome == 'failure'
         with:
-          token: ${{ secrets.GH_WORKFLOW_TOKEN }}
+          # token: ${{ secrets.GH_WORKFLOW_TOKEN }}
           commit-message: Ignore ${{ github.event.inputs.imageTag }}
           # committer: GitHub <noreply@github.com>
           # author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
