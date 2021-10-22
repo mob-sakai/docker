@@ -37,7 +37,7 @@ jobs:
     name: Comment for the image tag '${{ github.event.inputs.imageTag }}'
     runs-on: ubuntu-latest
     outputs:
-      comment-id: ${{ steps.fc.outputs.comment-id }}
+      already-commented: ${{ steps.fc.outputs.comment-id != '' }}
     steps:
       - name: Find Comment
         uses: peter-evans/find-comment@v1
@@ -59,17 +59,18 @@ jobs:
   ignore:
     name: Ignore the image tag '${{ github.event.inputs.imageTag }}' for workflow
     needs: comment
-    if: needs.comment.outputs.comment-id != ''
+    if: needs.comment.outputs.already-commented
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - run: |
+          echo ${{ needs.comment.outputs.already-commented }}
           sed -i -e "s/<<AUTO_IGNORED_IMAGE_TAGS>>/&\\n    ${{ github.event.inputs.imageTag }}/" .github/workflows/build-all.yml
       - name: Create Pull Request
         id: cpr
         uses: peter-evans/create-pull-request@v3
         with:
-          # token: ${{ secrets.PAT }}
+          token: ${{ secrets.GH_WORKFLOW_TOKEN }}
           commit-message: Ignore ${{ github.event.inputs.imageTag }}
           # committer: GitHub <noreply@github.com>
           # author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
