@@ -45,6 +45,8 @@ env:
     2019.1.*-linux-il2cpp
     2019.2.*-linux-il2cpp
     <<AUTO_IGNORED_IMAGE_TAGS>>
+    2022.1.0a7-mac-mono-1.0.0
+    2021.2.0b1-windows-mono-1.0.0
 
 on:
   repository_dispatch:
