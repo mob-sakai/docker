@@ -67,15 +67,19 @@ jobs:
 
           # Get in-progress or queued workflows.
           gh auth login --with-token < <(echo ${{ github.token }})
-          RUNNING_WORKFLOWS=`gh api -X GET /repos/${{ github.repository }}/actions/runs | jq -c '[ .workflow_runs[] | select(.status | test("in_progress|queued")) | .path ]'`
+
+          lim_date=`date -d "2 days ago" +'%Y-%m-%d'`
+          jqe='[ .[] | select(.status | test("in_progress|queued")) | select(.startedAt >= "'${lim_date}'").name ]'
+          RUNNING_WORKFLOWS=`gh run list --json 'name,status,startedAt' --jq "$jqe"`
+
           echo "======== Running Workflows ========"
           echo "$RUNNING_WORKFLOWS"
 
           # [ERROR] Any 'Build Editor' workflow is in progress.
-          [ 0 -lt `echo $RUNNING_WORKFLOWS | jq '[ .[] | select ( . == ".github/workflows/build-editor.yml" ) ] | length'` ] && echo "::error::Any 'Build Editor' workflow is running." && exit 1 || :
+          [ 0 -lt `echo $RUNNING_WORKFLOWS | jq '[.[] | select(test("Build Editor"))] | length'` ] && echo "::error::Any 'Build Editor' workflow is running." && exit 1 || :
 
           # [ERROR] Other 'Build All' workflow is in progress.
-          [ 1 -lt `echo $RUNNING_WORKFLOWS | jq '[ .[] | select ( . == ".github/workflows/build-all.yml" ) ] | length'` ] && echo "::error::Other 'Build All' workflow is running." && exit 1 || :
+          [ 1 -lt `echo $RUNNING_WORKFLOWS | jq '[.[] | select(test("Build All"))] | length'` ] && echo "::error::Other 'Build All' workflow is running." && exit 1 || :
 
       ###########################
       # Checkout latest release #
