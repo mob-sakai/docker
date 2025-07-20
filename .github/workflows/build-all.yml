@@ -90,6 +90,7 @@ jobs:
         with:
           repository: ${{ github.repository }}
           excludes: prerelease, draft
+          token: ${{ github.token }}
       - name: 🚚 Checkout (${{ steps.latest.outputs.release }})
         uses: actions/checkout@v4
         with:
