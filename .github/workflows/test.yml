@@ -16,9 +16,13 @@ on:
         required: false
         default: ''
       modules:
-        description: 'The modules to test.If empty, all modules are tested. (e.g. ["base", "linux-il2cpp", "windows-mono", "mac-mono", "ios", "android", "webgl"])'
+        description: 'The modules to test. If empty, all modules are tested. (e.g. ["base", "linux-il2cpp", "windows-mono", "mac-mono", "ios", "android", "webgl"])'
         required: false
         default: '["base", "linux-il2cpp", "windows-mono", "mac-mono", "ios", "android", "webgl"]'
+      runs-on:
+        description: 'The runs-on to use for the job. (e.g. ubuntu-latest, self-hosted)'
+        required: true
+        default: 'ubuntu-latest'
   push:
     branches:
       develop
@@ -40,7 +44,7 @@ jobs:
   ###########################
   base-and-hub:
     name: 🛠️ Build base and hub images
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.inputs.runs-on || 'ubuntu-latest' }}
     outputs:
       versions: ${{ steps.setup.outputs.versions }}
       modules: ${{ steps.setup.outputs.modules }}

@@ -229,7 +229,7 @@ jobs:
             if [ -n "$(grep -x ${version}-${{ matrix.module }}-${{ env.tag }} .existTags)" ]; then
               # already built with the same tag, so skip
               continue
-            elif [ -z "$(echo ${version}-${{ matrix.module }}-${{ env.tag }} | grep -xf .ignoreTags)" ]; then
+            elif [ -n "$(echo ${version}-${{ matrix.module }}-${{ env.tag }} | grep -xf .ignoreTags)" ]; then
               # completely match an ignore tag, so skip
               continue
             elif [ -z "$(grep -x ${version}-${{ matrix.module }} .existShortTags)" ]; then
