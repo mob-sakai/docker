@@ -94,7 +94,7 @@ jobs:
           - targetPlatform: WebGL
             module: -webgl
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: game-ci/unity-test-runner@v4
         env:

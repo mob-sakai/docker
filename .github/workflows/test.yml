@@ -49,7 +49,7 @@ jobs:
       #          Setup          #
       ###########################
       - name: 🚚 Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: ⚙️ Setup QEMU
         uses: docker/setup-qemu-action@v3
       - name: ⚙️ Setup Buildx
@@ -139,7 +139,7 @@ jobs:
       #          Setup          #
       ###########################
       - name: 🚚 Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: ⚙️ Setup QEMU
         uses: docker/setup-qemu-action@v3
       - name: ⚙️ Setup Buildx
@@ -165,7 +165,7 @@ jobs:
       #   Restore base and hub  #
       ###########################
       - name: 📥 Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: base-and-hub
 

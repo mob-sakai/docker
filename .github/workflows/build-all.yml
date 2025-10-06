@@ -55,7 +55,7 @@ jobs:
       #        Setup env        #
       ###########################
       - name: 🚚 Checkout (${{ github.ref }})
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       ###########################
       #  Check build workflows  #
@@ -92,7 +92,7 @@ jobs:
           excludes: prerelease, draft
           token: ${{ github.token }}
       - name: 🚚 Checkout (${{ steps.latest.outputs.release }})
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ steps.latest.outputs.release }}
 
@@ -199,7 +199,7 @@ jobs:
       #          Setup          #
       ###########################
       - name: 🚚 Checkout (${{ github.ref }})
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: ⚙️ Get available Unity versions
         run: |
