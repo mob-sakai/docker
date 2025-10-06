@@ -208,7 +208,13 @@ jobs:
 
       - name: ⚙️ Find exist tags
         run: |
-          skopeo list-tags docker://ghcr.io/mob-sakai/unity3d | jq -r '.Tags[]' | grep -v '^ubuntu' | grep -e "-${{ matrix.module }}-${{ env.tag }}$" | tee .existTags || touch .existTags
+          skopeo list-tags docker://ghcr.io/mob-sakai/unity3d | jq -r '.Tags[]' | grep -v '^ubuntu' > .allTags
+
+          echo "======== Exist images with tag (${{ matrix.module }}-${{ env.tag }}) ========"
+          grep -e "-${{ matrix.module }}-${{ env.tag }}$" .allTags | tee .existTags || touch .existTags
+
+          echo "======== Exist images with tag (${{ matrix.module }}) ========"
+          grep -e "-${{ matrix.module }}$" .allTags | tee .existShortTags || touch .existShortTags
 
       - name: ⚙️ Setup ignored tags
         run: |
@@ -218,11 +224,22 @@ jobs:
       - name: ⚙️ Setup Unity versions to build
         id: setup
         run: |
-          UNITY_VERSIONS_TO_BUILD=`for version in $(cat .availableUnityVersions) ; do \
-              [ -z "$(grep -x ${version}-${{ matrix.module }}-${{ env.tag }} .existTags)" ] \
-              && [ -z "$(echo ${version}-${{ matrix.module }}-${{ env.tag }} | grep -f .ignoreTags)" ] \
-              && echo "${version}" || : ; \
-          done`
+          UNITY_VERSIONS_TO_BUILD=""
+          for version in $(cat .availableUnityVersions); do
+            if [ -n "$(grep -x ${version}-${{ matrix.module }}-${{ env.tag }} .existTags)" ]; then
+              # already built with the same tag, so skip
+              continue
+            elif [ -z "$(grep -x ${version}-${{ matrix.module }} .existShortTags)" ]; then
+              # never built with any tag, so build
+              UNITY_VERSIONS_TO_BUILD="${UNITY_VERSIONS_TO_BUILD}${version}\n"
+            elif [ -z "$(echo ${version}-${{ matrix.module }}-${{ env.tag }} | grep -f .ignoreTags)" ]; then
+              # not in the ignore list, so build
+              UNITY_VERSIONS_TO_BUILD="${UNITY_VERSIONS_TO_BUILD}${version}\n"
+            fi
+          done
+
+          # Remove trailing newline
+          UNITY_VERSIONS_TO_BUILD=$(echo -e "${UNITY_VERSIONS_TO_BUILD}" | sed '/^$/d')
 
           if [ -z "${UNITY_VERSIONS_TO_BUILD}" ]; then
             echo "::warning::No versions to build."
@@ -231,7 +248,8 @@ jobs:
           fi
 
           echo "======== Output ========"
-          VERSIONS_JSON=`echo "${UNITY_VERSIONS_TO_BUILD}" | head -n 100 | jq -R '.' | jq -s -c '.' | jq -R '.' || echo '[]'`
+          # Limit to 100 versions to avoid exceeding GitHub Actions input size or API limits.
+          VERSIONS_JSON=`echo -e "${UNITY_VERSIONS_TO_BUILD}" | head -n 100 | jq -R '.' | jq -s -c '.' | jq -R '.' || echo '[]'`
           echo "versions=${VERSIONS_JSON}" | tee $GITHUB_OUTPUT $GITHUB_STEP_SUMMARY
 
       ###########################
