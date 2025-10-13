@@ -76,7 +76,7 @@ jobs:
 
       - name: 🔍 Find changeSet for ${{ matrix.version }}
         id: changeSet
-        run: echo "value=`npx --yes unity-changeset ${{ matrix.version }}`" | tee $GITHUB_OUTPUT
+        run: echo "value=`npx --yes unity-changeset@latest ${{ matrix.version }}`" | tee $GITHUB_OUTPUT
 
       ###########################
       #       Setup Docker      #
@@ -135,8 +135,8 @@ jobs:
             version=${{ matrix.version }}
             changeSet=${{ steps.changeSet.outputs.value }}
             module=${{ inputs.module }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           push: ${{ inputs.push }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -162,8 +162,8 @@ jobs:
             version=${{ matrix.version }}
             changeSet=${{ steps.changeSet.outputs.value }}
             module=${{ inputs.module }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           push: ${{ inputs.push }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}

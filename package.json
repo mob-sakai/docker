@@ -7,7 +7,12 @@
     "type": "git",
     "url": "https://github.com/mob-sakai/docker.git"
   },
-  "author": "mob-sakai <sakai861104@gmail.com> (https://github.com/mob-sakai)",
+  "author": {
+    "name": "mob-sakai",
+    "email": "sakai861104@gmail.com",
+    "url": "https://github.com/mob-sakai"
+  },
+  "homepage": "https://github.com/mob-sakai/docker",
   "release": {
     "branches": [
       "main"

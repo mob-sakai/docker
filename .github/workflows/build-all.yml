@@ -133,8 +133,8 @@ jobs:
         with:
           context: .
           file: base/Dockerfile
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           push: true
           labels: ${{ steps.base-meta.outputs.labels }}
           tags: ${{ steps.base-meta.outputs.tags }}
@@ -164,8 +164,8 @@ jobs:
           file: hub/Dockerfile
           build-args: |
             baseImage=ghcr.io/mob-sakai/unity3d_base:${{ steps.latest.outputs.release }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           push: true
           labels: ${{ steps.hub-meta.outputs.labels }}
           tags: ${{ steps.hub-meta.outputs.tags }}
