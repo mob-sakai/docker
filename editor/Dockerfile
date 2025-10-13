@@ -32,24 +32,6 @@ RUN echo "$version-$module" | grep -q -vP '^(2021.2.(?![0-4](?![0-9]))|2021.[3-9
   && exit 0 \
   || unity-hub install-modules --version "$version" --module "windows-server" --childModules | tee /var/log/install-module-windows-server.log && grep 'Missing module' /var/log/install-module-windows-server.log | exit $(wc -l);
 
-# To improve the pull speed of images, split and copy the editor directory.
-ENV UNITY_PATH=/opt/unity/editors/$version
-RUN mv $UNITY_PATH/Editor/BugReporter/ /opt/BugReporter/
-RUN mv $UNITY_PATH/Editor/Data/Tools/ /opt/Tools/
-RUN mv $UNITY_PATH/Editor/Data/PlaybackEngines/LinuxStandaloneSupport/ /opt/LinuxStandaloneSupport/
-RUN mv $UNITY_PATH/Editor/Data/PlaybackEngines/ /opt/PlaybackEngines/
-RUN mv $UNITY_PATH/Editor/Data/Resources/PackageManager/BuiltInPackages/ /opt/BuiltInPackages/
-RUN mv $UNITY_PATH/Editor/Data/Resources/PackageManager/Editor/ /opt/EditorPackages/
-RUN mv $UNITY_PATH/Editor/Data/Resources/PackageManager/ProjectTemplates/ /opt/ProjectTemplates/
-RUN mkdir -p /opt/unityResources \
-  && mv $UNITY_PATH/Editor/Data/Resources/unity* /opt/unityResources/
-RUN mv $UNITY_PATH/Editor/Data/Resources/ /opt/Resources/
-RUN mkdir -p /opt/Frameworks \
-  && find $UNITY_PATH/Editor/Data/ -maxdepth 1 -type d -name "Net*" -o -name "Mono*" -o -name "il2cpp*" | xargs -I{} mv {} opt/Frameworks/
-RUN mkdir -p /opt/libs \
-  && mv $UNITY_PATH/Editor/*.so* /opt/libs/
-
-
 ###########################
 #          Editor         #
 ###########################
@@ -59,24 +41,7 @@ FROM $baseImage
 # Always put "Editor" and "modules.json" directly in $UNITY_PATH
 ARG version
 ARG module
-
-# To improve the pull speed of images, split and copy the editor directory.
-COPY --from=builder /opt/libs/ $UNITY_PATH/Editor/
-COPY --from=builder /opt/BugReporter/ $UNITY_PATH/Editor/BugReporter/
-COPY --from=builder /opt/Tools/ $UNITY_PATH/Editor/Data/Tools/
-COPY --from=builder /opt/Frameworks/ $UNITY_PATH/Editor/Data/
-
-COPY --from=builder /opt/ProjectTemplates/ $UNITY_PATH/Editor/Data/Resources/PackageManager/ProjectTemplates/
-COPY --from=builder /opt/BuiltInPackages/ $UNITY_PATH/Editor/Data/Resources/PackageManager/BuiltInPackages/
-COPY --from=builder /opt/EditorPackages/ $UNITY_PATH/Editor/Data/Resources/PackageManager/Editor/
-COPY --from=builder /opt/unityResources/ $UNITY_PATH/Editor/Data/Resources/
-COPY --from=builder /opt/Resources/ $UNITY_PATH/Editor/Data/Resources/
-
-COPY --from=builder --chmod=755 /opt/LinuxStandaloneSupport/ $UNITY_PATH/Editor/Data/PlaybackEngines/LinuxStandaloneSupport/
-COPY --from=builder --chmod=755 /opt/PlaybackEngines/ $UNITY_PATH/Editor/Data/PlaybackEngines/
-
-COPY --from=builder /opt/unity/editors/$version/Editor/ $UNITY_PATH/Editor/
-COPY --from=builder /opt/unity/editors/$version/modules.json $UNITY_PATH/modules.json
+COPY --from=builder /opt/unity/editors/$version/ "$UNITY_PATH/"
 
 # Add a file containing the version for this build
 RUN echo $version > "$UNITY_PATH/version"
