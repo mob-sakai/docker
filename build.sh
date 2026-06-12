@@ -16,7 +16,7 @@ module=${2:-base}
 
 echo "================ BUILD ================"
 echo "version: $version"
-changeSet=`npx --yes unity-changeset $1`
+changeSet=`npx --yes unity-changeset@latest $1`
 echo "changeSet: $changeSet"
 echo "module: $module"
 echo "image name: unity3d:$version-$module"

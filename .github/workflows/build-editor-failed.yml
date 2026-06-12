@@ -15,56 +15,59 @@ jobs:
   comment:
     name: 📝 Report '${{ inputs.imageTag }}'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     outputs:
-      already-commented: ${{ steps.fc.outputs.comment-id != '' }}
+      already-commented: ${{ steps.find-comment.outputs.already-commented }}
     steps:
-      - name: 🔍 Find issue
-        id: fi
-        continue-on-error: true
-        uses: micalevisk/last-issue-action@v2
-        with:
-          labels: failure report
+      - name: 🚚 Checkout
+        uses: actions/checkout@v6
 
-      - name: ✅ Create issue
-        uses: maxkomarychev/oction-create-issue@v0.7.1
-        if: steps.fi.outputs.has_found == 'false'
-        id: ci
-        with:
-          token: ${{ github.token }}
-          title: "🔒 Failed building tags (editor) 🚨"
-          body: |
-            This issue will be appended with image tags that failed to build.
-            Image tags that fail more than once will be recorded to `.ignoreTags` file.
-            They will be considered **"image tags to ignore."**
-          labels: failure report
+      - name: 👤 Login to Github
+        run: gh auth login --with-token < <(echo ${{ github.token }})
 
-      - name: 🔍 Find comment
-        uses: peter-evans/find-comment@v3
-        id: fc
-        continue-on-error: true
-        with:
-          issue-number: ${{ steps.fi.outputs.issue-number }}${{ steps.ci.outputs.number }}
-          comment-author: "mob-sakai"
-          body-includes: ${{ inputs.imageTag }}
+      - name: 🔍 Find or create issue
+        id: find-issue
+        run: |
+          # Find the issue number of the latest issue with the "failure report" label.
+          number=`gh issue list --label "failure report" --json number --jq '.[0].number'`
 
-      - name: ✅ Create comment
-        if: steps.fc.outputs.comment-id == ''
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          token: ${{ secrets.GH_TOKEN }}
-          issue-number: ${{ steps.fi.outputs.issue-number }}${{ steps.ci.outputs.number }}
-          body: |
-            The build '${{ inputs.imageTag }}' failed.
-            If it fails again, it will be added to the ignore list.
+          # If no such issue exists, create a locked new one and use its number.
+          if [ -z "$number" ]; then
+            gh label create "failure report" --color ededed --force
+            number=`gh issue create --title "🔒 Failed building tags (editor)🚨" --label "failure report" \
+              --body "This issue will be appended with image tags that failed to build." | sed 's#.*/##'`
+            gh issue lock $number --reason off_topic
+          fi
+
+          echo "issue-number=$number" | tee $GITHUB_OUTPUT
+
+      - name: 🔍 Find or create comment
+        id: find-comment
+        run: |
+          # Check if the comment with the same image-tag already exists to avoid duplicate comments.
+          if gh issue view "$ISSUE_NUMBER" --comments --json comments --jq '.comments[].body' | grep -q "$IMAGE_TAG"; then
+            echo "already-commented=true" | tee $GITHUB_OUTPUT
+          else
+            gh issue unlock $ISSUE_NUMBER
+            gh issue comment "$ISSUE_NUMBER" --body "$IMAGE_TAG"
+            gh issue lock $ISSUE_NUMBER --reason off_topic
+          fi
+        env:
+          IMAGE_TAG: ${{ inputs.imageTag }}
+          ISSUE_NUMBER: ${{ steps.find-issue.outputs.issue-number }}
 
   ignore:
     name: 🚨 Ignore '${{ inputs.imageTag }}'
     needs: comment
     if: needs.comment.outputs.already-commented == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: 🚚 Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.ref }}
 
@@ -72,7 +75,7 @@ jobs:
         run: echo ${{ inputs.imageTag }} >> .ignoreTags
 
       - name: ✅ Commit and push
-        uses: EndBug/add-and-commit@v9
+        uses: EndBug/add-and-commit@v10
         with:
           default_author: github_actions
           message: ignore ${{ inputs.imageTag }}

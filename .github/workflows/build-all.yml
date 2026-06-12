@@ -55,7 +55,7 @@ jobs:
       #        Setup env        #
       ###########################
       - name: 🚚 Checkout (${{ github.ref }})
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       ###########################
       #  Check build workflows  #
@@ -85,14 +85,14 @@ jobs:
       # Checkout latest release #
       ###########################
       - name: 🔖 Find latest release
-        uses: pozetroninc/github-action-get-latest-release@master
         id: latest
-        with:
-          repository: ${{ github.repository }}
-          excludes: prerelease, draft
-          token: ${{ github.token }}
+        run: |
+          # Fetch the release list from the repository.
+          release=`gh release list --exclude-drafts --exclude-pre-releases --json tagName --jq '.[0].tagName'`
+          echo "release=$release" | tee $GITHUB_OUTPUT
+
       - name: 🚚 Checkout (${{ steps.latest.outputs.release }})
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.latest.outputs.release }}
 
@@ -100,11 +100,11 @@ jobs:
       #          Setup          #
       ###########################
       - name: ⚙️ Setup QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
       - name: ⚙️ Setup buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: 🔑 Login docker
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: mob-sakai
@@ -119,7 +119,7 @@ jobs:
           [ -n "`skopeo list-tags docker://ghcr.io/mob-sakai/unity3d_base | jq -r '.Tags[]' | grep -x '${{ steps.latest.outputs.release }}' || :`" ] && echo "skip=true" | tee $GITHUB_OUTPUT || :
       - name: ⚙️ (base) Setup metadata
         if: steps.setup_base.outputs.skip != 'true'
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         id: base-meta
         with:
           images: ghcr.io/mob-sakai/unity3d_base
@@ -129,7 +129,7 @@ jobs:
           tags: type=semver,pattern={{raw}},value=${{ steps.latest.outputs.release }}
       - name: 🛠️ (base) Build and push
         if: steps.setup_base.outputs.skip != 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: base/Dockerfile
@@ -148,7 +148,7 @@ jobs:
           [ -n "`skopeo list-tags docker://ghcr.io/mob-sakai/unity3d_hub | jq -r '.Tags[]' | grep -x '${{ steps.latest.outputs.release }}' || :`" ] && echo "skip=true" | tee $GITHUB_OUTPUT || :
       - name: ⚙️ (hub) Setup metadata
         if: steps.setup_hub.outputs.skip != 'true'
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         id: hub-meta
         with:
           images: ghcr.io/mob-sakai/unity3d_hub
@@ -158,7 +158,7 @@ jobs:
           tags: type=semver,pattern={{raw}},value=${{ steps.latest.outputs.release }}
       - name: 🛠️ (hub) Build and push
         if: steps.setup_hub.outputs.skip != 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: hub/Dockerfile
@@ -199,7 +199,7 @@ jobs:
       #          Setup          #
       ###########################
       - name: 🚚 Checkout (${{ github.ref }})
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: ⚙️ Get available Unity versions
         run: |
