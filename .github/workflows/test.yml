@@ -55,7 +55,7 @@ jobs:
       #          Setup          #
       ###########################
       - name: 🚚 Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: ⚙️ Setup QEMU
         uses: docker/setup-qemu-action@v4
       - name: ⚙️ Setup Buildx
@@ -90,7 +90,7 @@ jobs:
           docker images
           docker save -o base-and-hub.tar unity3d_base:local unity3d_hub:local
       - name: 📦 Upload base and hub images for next
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: base-and-hub
           path: base-and-hub.tar
@@ -148,7 +148,7 @@ jobs:
       #          Setup          #
       ###########################
       - name: 🚚 Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: ⚙️ Setup QEMU
         uses: docker/setup-qemu-action@v4
       - name: ⚙️ Setup Buildx
@@ -174,7 +174,7 @@ jobs:
       #   Restore base and hub  #
       ###########################
       - name: 📥 Download artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: base-and-hub
 
@@ -249,7 +249,7 @@ jobs:
           push: false
 
       - name: 📥 Cache library
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: reference-project/Library
           key: Library-${{ matrix.version }}-${{ matrix.module }}-${{ github.sha }}

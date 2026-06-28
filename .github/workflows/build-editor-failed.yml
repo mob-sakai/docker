@@ -22,7 +22,7 @@ jobs:
       already-commented: ${{ steps.find-comment.outputs.already-commented }}
     steps:
       - name: 🚚 Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: 👤 Login to Github
         run: gh auth login --with-token < <(echo ${{ github.token }})
@@ -67,7 +67,7 @@ jobs:
       contents: write
     steps:
       - name: 🚚 Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
 

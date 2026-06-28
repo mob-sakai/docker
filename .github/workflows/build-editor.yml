@@ -12,7 +12,6 @@
 # [Required secrets]
 #   DOCKER_USERNAME:    Docker username to login
 #   DOCKER_PASSWORD:    Docker password/token
-#   GH_WORKFLOW_TOKEN:  Github parsonal access token to dispatch workflow
 name: 🛠️ Build Editor
 run-name: 🛠️ Build Editor (${{ inputs.module }}, ${{ inputs.tag }})
 
@@ -53,7 +52,7 @@ jobs:
       ###########################
       #    Checkout     #
       ###########################
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
 

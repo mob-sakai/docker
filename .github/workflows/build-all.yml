@@ -24,7 +24,6 @@
 # [Required secrets]
 #   DOCKER_USERNAME:    Docker username to login
 #   DOCKER_PASSWORD:    Docker password to login
-#   GH_WORKFLOW_TOKEN:  Github parsonal access token to dispatch workflow
 name: 🛠️ Build All
 
 on:
@@ -55,7 +54,7 @@ jobs:
       #        Setup env        #
       ###########################
       - name: 🚚 Checkout (${{ github.ref }})
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       ###########################
       #  Check build workflows  #
@@ -92,7 +91,7 @@ jobs:
           echo "release=$release" | tee $GITHUB_OUTPUT
 
       - name: 🚚 Checkout (${{ steps.latest.outputs.release }})
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.latest.outputs.release }}
 
@@ -199,7 +198,7 @@ jobs:
       #          Setup          #
       ###########################
       - name: 🚚 Checkout (${{ github.ref }})
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: ⚙️ Get available Unity versions
         run: |

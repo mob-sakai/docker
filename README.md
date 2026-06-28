@@ -192,7 +192,6 @@ Excluded image tags for build (Regular expressions)
 | ------------------- | -------------------------------------------------------------- |
 | `DOCKER_USERNAME`   | Docker username to login.                                      |
 | `DOCKER_PASSWORD`   | Docker password or access token to login.                      |
-| `GH_WORKFLOW_TOKEN` | A [Github parsonal access token][] with `workflow` premission. |
 
 [Github parsonal access token]: https://docs.github.com/en/free-pro-team@latest/github/authenticating-to-github/creating-a-personal-access-token
 
