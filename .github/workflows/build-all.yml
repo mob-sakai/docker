@@ -56,6 +56,11 @@ jobs:
       - name: 🚚 Checkout (${{ github.ref }})
         uses: actions/checkout@v7
 
+      - name: 💤 Sleep 5 min
+        if: github.event_name != 'issue_comment' || startsWith(github.event.comment.body, '/build-all')
+        run: |
+          sleep 300
+
       ###########################
       #  Check build workflows  #
       ###########################
