@@ -195,6 +195,8 @@ jobs:
           - linux-il2cpp
           - windows-mono
           - mac-mono
+          - windows-coreclr
+          - mac-coreclr
           - ios
           - android
           - webgl
@@ -208,7 +210,17 @@ jobs:
       - name: ⚙️ Get available Unity versions
         run: |
           MIN_VERSION=`cat .minimumUnityVersion`
-          npx --yes unity-changeset@latest list --versions --min $MIN_VERSION --all | tee .availableUnityVersions
+
+          # '*-mono' modules is available until version 6000.x
+          if [ "${{ matrix.module }}" = "windows-mono" ] || [ "${{ matrix.module }}" = "mac-mono" ]; then
+            VERSION_ARGS="--min $MIN_VERSION --all --max 6000.99"
+          # '*-coreclr' modules is available since version 7000.0
+          elif [ "${{ matrix.module }}" = "windows-coreclr" ] || [ "${{ matrix.module }}" = "mac-coreclr" ]; then
+            VERSION_ARGS="--min 7000.0 --all"
+          else
+            VERSION_ARGS="--min $MIN_VERSION --all"
+          fi
+          npx --yes unity-changeset@latest list --versions $VERSION_ARGS | tee .availableUnityVersions
 
       - name: ⚙️ Find exist tags
         run: |
