@@ -19,17 +19,17 @@ echo "version: $version"
 changeSet=`npx --yes unity-changeset@latest $1`
 echo "changeSet: $changeSet"
 echo "module: $module"
-echo "image name: unity3d:$version-$module"
+echo "image name: unity3d:$version-$module-local"
 echo "pwd: `pwd`"
 echo "======================================="
 
 docker build -t unity3d_base:local -f base/Dockerfile .
 
-docker build -t unity3d:$version-$module -f editor/Dockerfile \
+docker build -t unity3d:$version-$module-local -f editor/Dockerfile \
   --build-arg baseImage=unity3d_base:local \
   --build-arg version=$version \
   --build-arg changeSet=$changeSet \
   --build-arg module=$module \
   .
 
-echo "Success build: unity3d:$version-$module"
+echo "Success build: unity3d:$version-$module-local"
