@@ -6,7 +6,7 @@ help()
 {
     echo "publish editor: ./publish.sh <unityVersion> [module]"
     echo "  unityVersion: e.g. 2020.3.0f1"
-    echo "  module: base,linux-il2cpp,windows-mono,mac-mono,ios,android,webgl (default: base)"
+    echo "  module: base,linux-il2cpp,linux-server,windows-mono,windows-coreclr,windows-server,mac-mono,mac-coreclr,mac-server,ios,android,webgl (default: base)"
 }
 
 [ "$1" = "" ] || [ "$1" = "-h" ] && help && exit 0

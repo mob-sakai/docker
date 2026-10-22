@@ -5,7 +5,7 @@ help()
     echo "run editor: ./run.sh <command> <unityVersion> [module]"
     echo "  command: build,test"
     echo "  unityVersion: e.g. 2020.3.0f1"
-    echo "  module: base,linux-il2cpp,windows-mono,mac-mono,ios,android,webgl (default: base)"
+    echo "  module: base,linux-il2cpp,linux-server,windows-mono,windows-coreclr,windows-server,mac-mono,mac-coreclr,mac-server,ios,android,webgl (default: base)"
 }
 
 [ "$1" = "" ] || [ "$2" = "" ] || [ "$1" = "-h" ] && help && exit 0
@@ -23,9 +23,9 @@ fi
 
 if [ "$module" = "base" ] || [ "$module" = "linux-il2cpp" ] || [ "$module" = "linux-server" ]; then
   buildTarget=StandaloneLinux64
-elif [ "$module" = "windows-mono" ]; then
+elif [ "$module" = "windows-mono" ] || [ "$module" = "windows-coreclr" ] || [ "$module" = "windows-server" ]; then
   buildTarget=StandaloneWindows
-elif [ "$module" = "mac-mono" ]; then
+elif [ "$module" = "mac-mono" ] || [ "$module" = "mac-coreclr" ] || [ "$module" = "mac-server" ]; then
   buildTarget=StandaloneOSX
 elif [ "$module" = "ios" ]; then
   buildTarget=iOS

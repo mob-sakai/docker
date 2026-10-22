@@ -162,10 +162,13 @@ jobs:
         module:
           - base
           - linux-il2cpp
+          - linux-server
           - windows-mono
-          - mac-mono
           - windows-coreclr
+          - windows-server
+          - mac-mono
           - mac-coreclr
+          - mac-server
           - ios
           - android
           - webgl
@@ -180,12 +183,15 @@ jobs:
         run: |
           MIN_VERSION=`cat .minimumUnityVersion`
 
-          # '*-mono' modules is available until version 6000.x
+          # Mono is available through Unity 6000.x.
           if [ "${{ matrix.module }}" = "windows-mono" ] || [ "${{ matrix.module }}" = "mac-mono" ]; then
             VERSION_ARGS="--min $MIN_VERSION --all --max 6000.99"
-          # '*-coreclr' modules is available since version 7000.0
+          # CoreCLR is available from Unity 7000.0.
           elif [ "${{ matrix.module }}" = "windows-coreclr" ] || [ "${{ matrix.module }}" = "mac-coreclr" ]; then
             VERSION_ARGS="--min 7000.0 --all"
+          # Server modules are available from Unity 2021.3.
+          elif [ "${{ matrix.module }}" = "linux-server" ] || [ "${{ matrix.module }}" = "windows-server" ] || [ "${{ matrix.module }}" = "mac-server" ]; then
+            VERSION_ARGS="--min 2021.3 --all"
           else
             VERSION_ARGS="--min $MIN_VERSION --all"
           fi

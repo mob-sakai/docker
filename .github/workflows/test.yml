@@ -16,9 +16,9 @@ on:
         required: false
         default: ''
       modules:
-        description: 'The modules to test. If empty, all modules are tested. (e.g. ["base", "linux-il2cpp", "windows-mono", "mac-mono", "ios", "android", "webgl"])'
+        description: 'The modules to test. If empty, all modules are tested. (e.g. ["base", "linux-il2cpp", "linux-server", "windows-mono", "windows-coreclr", "windows-server", "mac-mono", "mac-coreclr", "mac-server", "ios", "android", "webgl"])'
         required: false
-        default: '["base", "linux-il2cpp", "windows-mono", "mac-mono", "ios", "android", "webgl"]'
+        default: '["base", "linux-il2cpp", "linux-server", "windows-mono", "windows-coreclr", "windows-server", "mac-mono", "mac-coreclr", "mac-server", "ios", "android", "webgl"]'
       runs-on:
         description: 'The runs-on to use for the job. (e.g. ubuntu-latest, self-hosted)'
         required: true
@@ -48,8 +48,7 @@ jobs:
     permissions:
       contents: read
     outputs:
-      versions: ${{ steps.setup.outputs.versions }}
-      modules: ${{ steps.setup.outputs.modules }}
+      matrix: ${{ steps.setup.outputs.matrix }}
     steps:
       ###########################
       #          Setup          #
@@ -97,20 +96,72 @@ jobs:
           echo "ADDITIONAL_VERSIONS=${ADDITIONAL_VERSIONS}" | tee -a $GITHUB_STEP_SUMMARY
           echo "INPUT_VERSIONS="'${{ inputs.versions }}' | tee -a $GITHUB_STEP_SUMMARY
 
-          VERSIONS='${{ inputs.versions }}'
-          if [ -z "${VERSIONS}" ]; then
-            LATEST_VERSIONS=`npx --yes unity-changeset@latest list --versions --latest-patch --min ${MINIMUM_VERSION} --json --all`
-            VERSIONS=`echo "[${LATEST_VERSIONS}, ${ADDITIONAL_VERSIONS}]" \
-              | jq -c '[ flatten | sort | unique | .[] | select( test("${{ env.EXCLUDE_FILTER }}") | not ) ]'`
-          fi
-
+          INPUT_VERSIONS='${{ inputs.versions }}'
           MODULES='${{ inputs.modules }}'
           if [ -z "${MODULES}" ]; then
-            MODULES='["base", "linux-il2cpp", "windows-mono", "mac-mono", "ios", "android", "webgl"]'
+            MODULES='["base", "linux-il2cpp", "linux-server", "windows-mono", "windows-coreclr", "windows-server", "mac-mono", "mac-coreclr", "mac-server", "ios", "android", "webgl"]'
           fi
 
-          echo "versions=${VERSIONS}" | tee -a $GITHUB_OUTPUT $GITHUB_STEP_SUMMARY
-          echo "modules=${MODULES}" | tee -a $GITHUB_OUTPUT $GITHUB_STEP_SUMMARY
+          echo "INPUT_VERSIONS=${INPUT_VERSIONS}" | tee -a $GITHUB_STEP_SUMMARY
+          echo "MODULES=${MODULES}" | tee -a $GITHUB_STEP_SUMMARY
+
+          # Build the matrix from each module's supported Unity version range.
+          MATRIX='[]'
+          for module in $(echo "${MODULES}" | jq -r '.[]'); do
+            MODULE_MIN_VERSION="${MINIMUM_VERSION}"
+            MODULE_MAX_VERSION=""
+            if [ -n "${INPUT_VERSIONS}" ]; then
+              MODULE_MIN_VERSION=""
+            fi
+            case "${module}" in
+              *-server) MODULE_MIN_VERSION="2021.3" ;;
+              *-mono) MODULE_MAX_VERSION="6000.99" ;;
+              *-coreclr) MODULE_MIN_VERSION="7000.0" ;;
+            esac
+
+            VERSION_ARGS=(--min "${MODULE_MIN_VERSION}")
+            if [ -n "${MODULE_MAX_VERSION}" ]; then
+              VERSION_ARGS+=(--max "${MODULE_MAX_VERSION}")
+            fi
+
+            if [ -n "${INPUT_VERSIONS}" ]; then
+              MODULE_CANDIDATES="${INPUT_VERSIONS}"
+            else
+              LATEST_VERSIONS=$(npx --yes unity-changeset@latest list --versions --latest-patch "${VERSION_ARGS[@]}" --json --all)
+              MODULE_CANDIDATES=$(echo "[${LATEST_VERSIONS}, ${ADDITIONAL_VERSIONS}]" \
+                | jq -c '[ flatten | sort | unique | .[] | select( test("${{ env.EXCLUDE_FILTER }}") | not ) ]')
+            fi
+
+            MODULE_VERSIONS=$(echo "${MODULE_CANDIDATES}" | jq -c \
+              --arg min "${MODULE_MIN_VERSION}" \
+              --arg max "${MODULE_MAX_VERSION}" '
+                def version_pair:
+                  capture("^(?<major>[0-9]+)\\.(?<minor>[0-9]+)")
+                  | [(.major | tonumber), (.minor | tonumber)];
+                def at_least($left; $right):
+                  ($left[0] > $right[0]) or ($left[0] == $right[0] and $left[1] >= $right[1]);
+                def at_most($left; $right):
+                  ($left[0] < $right[0]) or ($left[0] == $right[0] and $left[1] <= $right[1]);
+                [
+                  .[] as $version
+                  | ($version | version_pair) as $pair
+                  | select(if $min == "" then true else at_least($pair; ($min | version_pair)) end)
+                  | select(if $max == "" then true else at_most($pair; ($max | version_pair)) end)
+                  | $version
+                ]')
+            MODULE_MATRIX=$(echo "${MODULE_VERSIONS}" | jq -c --arg module "${module}" '[.[] | {version: ., module: $module}]')
+            MATRIX=$(jq -cn --argjson matrix "${MATRIX}" --argjson module_matrix "${MODULE_MATRIX}" '$matrix + $module_matrix')
+
+            echo "${module} (min=${MODULE_MIN_VERSION}, max=${MODULE_MAX_VERSION:-none}): ${MODULE_VERSIONS}" | tee -a $GITHUB_STEP_SUMMARY
+          done
+
+          if [ "${MATRIX}" = "[]" ]; then
+            echo "::error::No compatible Unity version and module combinations were found for the specified inputs."
+            exit 1
+          fi
+
+          echo "matrix=${MATRIX}" | tee -a $GITHUB_OUTPUT
+          echo "Compatible combinations: $(echo "${MATRIX}" | jq length)" | tee -a $GITHUB_STEP_SUMMARY
 
   ###########################
   #  Build editor and test  #
@@ -130,9 +181,7 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        # The latest patch versions for each minor version.
-        version: ${{ fromJson(needs.base-and-hub.outputs.versions) }}
-        module: ${{ fromJson(needs.base-and-hub.outputs.modules) }}
+        include: ${{ fromJson(needs.base.outputs.matrix) }}
 
     steps:
       ###########################
@@ -184,9 +233,9 @@ jobs:
         id: targetPlatform
         run: |
           case ${{ matrix.module }} in
-            base|linux-il2cpp ) echo "value=StandaloneLinux64" | tee $GITHUB_OUTPUT;;
-            windows-mono )      echo "value=StandaloneWindows" | tee $GITHUB_OUTPUT;;
-            mac-mono )          echo "value=StandaloneOSX" | tee $GITHUB_OUTPUT;;
+            base|linux-il2cpp|linux-server ) echo "value=StandaloneLinux64" | tee $GITHUB_OUTPUT;;
+            windows-mono|windows-coreclr|windows-server ) echo "value=StandaloneWindows" | tee $GITHUB_OUTPUT;;
+            mac-mono|mac-coreclr|mac-server ) echo "value=StandaloneOSX" | tee $GITHUB_OUTPUT;;
             ios )               echo "value=iOS" | tee $GITHUB_OUTPUT;;
             android )           echo "value=Android" | tee $GITHUB_OUTPUT;;
             webgl )             echo "value=WebGL" | tee $GITHUB_OUTPUT;;

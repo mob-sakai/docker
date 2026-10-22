@@ -27,9 +27,13 @@ $ docker pull ghcr.io/mob-sakai/unity3d:2022.3.0f1-webgl
 - Module: Optional. Specifies the Unity module. (default: `-base`)
   - `-base`: No additional modules. Equivalent to "linux-mono".
   - `-linux-il2cpp`
-  - `-linux-server`
-  - `-mac-mono`
-  - `-windows-mono`
+  - `-linux-server` (Unity 2021.3+)
+  - `-mac-server` (Unity 2021.3+)
+  - `-windows-server` (Unity 2021.3+)
+  - `-mac-mono` (through Unity 6000.x)
+  - `-windows-mono` (through Unity 6000.x)
+  - `-mac-coreclr` (Unity 7000.0+)
+  - `-windows-coreclr` (Unity 7000.0+)
   - `-android`
   - `-ios`
   - `-webgl`
