@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: 🔖 Run semantic release
-        uses: cycjimmy/semantic-release-action@v6
+        uses: cycjimmy/semantic-release-action@v8
         id: release
         env:
           GITHUB_TOKEN: ${{ github.token }}

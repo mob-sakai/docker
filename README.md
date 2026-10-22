@@ -65,7 +65,7 @@ $ docker run -v "$(pwd):/home" -w "/home" -it ghcr.io/mob-sakai/unity3d:2022.3.0
 [Unity - Builder](https://github.com/marketplace/actions/unity-builder) and [Unity - Test runner](https://github.com/marketplace/actions/unity-test-runner) actions support `customImage` parameter:
 
 ```yml
-- uses: game-ci/unity-test-runner@v2
+- uses: game-ci/unity-test-runner@v4
   with:
     customImage: ghcr.io/mob-sakai/unity3d:2020.3.0f1-webgl
     ...
@@ -98,7 +98,7 @@ jobs:
           - targetPlatform: WebGL
             module: -webgl
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: game-ci/unity-test-runner@v4
         env:
@@ -109,7 +109,7 @@ jobs:
           targetPlatform: ${{ matrix.targetPlatform }}
           githubToken: ${{ github.token }}
 
-      - uses: game-ci/unity-builder@v4
+      - uses: game-ci/unity-builder@v6
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -118,7 +118,7 @@ jobs:
           customImage: ghcr.io/mob-sakai/unity3d:${{ matrix.unityVersion }}${{ matrix.module }}
           targetPlatform: ${{ matrix.targetPlatform }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Build
           path: build

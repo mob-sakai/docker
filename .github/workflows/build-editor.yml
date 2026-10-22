@@ -60,7 +60,7 @@ jobs:
       #          Setup          #
       ###########################
       - name: 🧹 Free disk space (Phase 1)
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v2
         with:
           tool-cache: false
           android: true
