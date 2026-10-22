@@ -130,7 +130,6 @@ jobs:
           file: editor/Dockerfile
           build-args: |
             baseImage=ghcr.io/mob-sakai/unity3d_base:${{ inputs.tag }}
-            hubImage=ghcr.io/mob-sakai/unity3d_hub:${{ inputs.tag }}
             version=${{ matrix.version }}
             changeSet=${{ steps.changeSet.outputs.value }}
             module=${{ inputs.module }}
@@ -157,7 +156,6 @@ jobs:
           file: editor/Dockerfile
           build-args: |
             baseImage=ghcr.io/mob-sakai/unity3d_base:${{ inputs.tag }}
-            hubImage=ghcr.io/mob-sakai/unity3d_hub:${{ inputs.tag }}
             version=${{ matrix.version }}
             changeSet=${{ steps.changeSet.outputs.value }}
             module=${{ inputs.module }}

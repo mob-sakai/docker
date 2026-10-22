@@ -1,56 +1,29 @@
-ARG hubImage=ghcr.io/mob-sakai/unity3d_hub:latest
 ARG baseImage=ghcr.io/mob-sakai/unity3d_base:latest
-
-###########################
-#         Builder         #
-###########################
-
-FROM $hubImage AS builder
-
-# Install editor
+FROM $baseImage
 ARG version
 ARG changeSet
-RUN unity-hub install --version "$version" --changeset "$changeSet" | tee /var/log/install-editor.log && grep 'Failed to install\|Error while installing an editor\|Completed with errors' /var/log/install-editor.log | exit $(wc -l)
+ARG module="base"
 
-# Install modules for that editor
-ARG module="non-existent-module"
-RUN for mod in $module; do \
-      if [ "$mod" = "base" ] ; then \
-        echo "running default modules for this baseOs"; \
-      else \
-        unity-hub install-modules --version "$version" --module "$mod" --childModules | tee /var/log/install-module-${mod}.log && grep 'Missing module\|Completed with errors' /var/log/install-module-${mod}.log | exit $(wc -l); \
-      fi \
+#=======================================================================================
+#  Install Unity Editor
+#=======================================================================================
+RUN unity install "$version" -c "$changeSet" --accept-eula --yes --non-interactive \
+ && for mod in $module; do \
+      if [ "$mod" != "base" ]; then \
+        unity install-modules -e "$version" -m "$mod" --cm --accept-eula --yes --non-interactive; \
+      fi; \
     done \
-	# Set execute permissions for modules
-	&& chmod -R 755 /opt/unity/editors/$version/Editor/Data/PlaybackEngines
+ && unity cache clean
 
-RUN echo "$version-$module" | grep -q -vP '^(2021.2.(?![0-4](?![0-9]))|2021.[3-9]|202[2-9]|[6-9][0-9]{3}|[1-9][0-9]{4,}).*linux' \
-  && exit 0 \
-  || unity-hub install-modules --version "$version" --module "linux-server" --childModules | tee /var/log/install-module-linux-server.log && grep 'Missing module' /var/log/install-module-linux-server.log | exit $(wc -l);
-
-RUN echo "$version-$module" | grep -q -vP '^(2021.2.(?![0-4](?![0-9]))|2021.[3-9]|202[2-9]|[6-9][0-9]{3}|[1-9][0-9]{4,}).*windows' \
-  && exit 0 \
-  || unity-hub install-modules --version "$version" --module "windows-server" --childModules | tee /var/log/install-module-windows-server.log && grep 'Missing module' /var/log/install-module-windows-server.log | exit $(wc -l);
-
-###########################
-#          Editor         #
-###########################
-
-FROM $baseImage
-
-# Always put "Editor" and "modules.json" directly in $UNITY_PATH
-ARG version
-ARG module
-COPY --from=builder /opt/unity/editors/$version/ "$UNITY_PATH/"
+# Used by Unity editor in "modules.json" and must not end with a slash.
+ENV UNITY_PATH=${UNITY_INSTALL_PATH}/${version}
 
 # Add a file containing the version for this build
 RUN echo $version > "$UNITY_PATH/version"
 
-
-###########################
-#  Alias to unity-editor  #
-###########################
-
+#=======================================================================================
+#  Alias to unity-editor
+#=======================================================================================
 RUN /bin/echo -e '#!/bin/bash\n\
 \n\
 if [ -d /usr/bin/unity-editor.d ] ; then\n\

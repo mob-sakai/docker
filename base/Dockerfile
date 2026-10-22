@@ -41,6 +41,7 @@ RUN apt-get -q update \
  curl \
  git \
  git-lfs \
+ gnupg \
  jq \
  openssh-client \
  wget \
@@ -72,5 +73,11 @@ RUN /bin/echo -e 'pcm.!default {\n\
 # Support forward compatibility for unity activation
 RUN echo "576562626572264761624c65526f7578" > /etc/machine-id && mkdir -p /var/lib/dbus/ && ln -sf /etc/machine-id /var/lib/dbus/machine-id
 
-# Used by Unity editor in "modules.json" and must not end with a slash.
-ENV UNITY_PATH="/opt/unity"
+# Install unity-cli
+RUN curl -fsSL https://unity.com/install.sh | bash
+ENV PATH="/root/.local/bin:${PATH}"
+
+# Set unity installation path
+ENV UNITY_INSTALL_PATH=/opt/Unity
+RUN mkdir -p "$UNITY_INSTALL_PATH" \
+ && unity install-path --set "$UNITY_INSTALL_PATH"

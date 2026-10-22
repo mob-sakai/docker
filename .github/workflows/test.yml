@@ -40,10 +40,10 @@ on:
 
 jobs:
   ###########################
-  #    Build base and hub   #
+  #        Build base       #
   ###########################
-  base-and-hub:
-    name: 🛠️ Build base and hub images
+  base:
+    name: 🛠️ Build base image
     runs-on: ${{ github.event.inputs.runs-on || 'ubuntu-latest' }}
     permissions:
       contents: read
@@ -64,7 +64,7 @@ jobs:
           driver: docker
 
       ###########################
-      #   Build base and hub    #
+      #       Build base        #
       ###########################
       - name: 🛠️ Build image (unity3d_base:local)
         uses: docker/build-push-action@v7
@@ -73,27 +73,18 @@ jobs:
           file: base/Dockerfile
           tags: unity3d_base:local
           push: false
-      - name: 🛠️ Build image (unity3d_hub:local)
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: hub/Dockerfile
-          build-args: baseImage=unity3d_base:local
-          tags: unity3d_hub:local
-          push: false
-
       ###########################
       #   Save images for next  #
       ###########################
       - name: 💾 Save images for next
         run: |
           docker images
-          docker save -o base-and-hub.tar unity3d_base:local unity3d_hub:local
-      - name: 📦 Upload base and hub images for next
+          docker save -o base.tar unity3d_base:local
+      - name: 📦 Upload base image for next
         uses: actions/upload-artifact@v7
         with:
-          name: base-and-hub
-          path: base-and-hub.tar
+          name: base
+          path: base.tar
           retention-days: 1
 
       ###########################
@@ -125,7 +116,7 @@ jobs:
   #  Build editor and test  #
   ###########################
   editor:
-    needs: base-and-hub
+    needs: base
     name: 🧪 Test editor (${{ matrix.version }}-${{ matrix.module }})
     runs-on: ubuntu-latest
     permissions:
@@ -171,16 +162,16 @@ jobs:
         run: .github/workflows/scripts/free_disk_space.sh
 
       ###########################
-      #   Restore base and hub  #
+      #       Restore base      #
       ###########################
       - name: 📥 Download artifact
         uses: actions/download-artifact@v8
         with:
-          name: base-and-hub
+          name: base
 
-      - name: 📥 Restore base and hub
+      - name: 📥 Restore base
         run: |
-          docker load -i base-and-hub.tar
+          docker load -i base.tar
 
       ###########################
       #      Setup to build     #
@@ -216,7 +207,6 @@ jobs:
           file: editor/Dockerfile
           build-args: |
             baseImage=unity3d_base:local
-            hubImage=unity3d_hub:local
             version=${{ matrix.version }}
             changeSet=${{ steps.changeSet.outputs.value }}
             module=${{ matrix.module }}
@@ -241,7 +231,6 @@ jobs:
           file: editor/Dockerfile
           build-args: |
             baseImage=unity3d_base:local
-            hubImage=unity3d_hub:local
             version=${{ matrix.version }}
             changeSet=${{ steps.changeSet.outputs.value }}
             module=${{ matrix.module }}

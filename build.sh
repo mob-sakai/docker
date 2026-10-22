@@ -25,11 +25,8 @@ echo "======================================="
 
 docker build -t unity3d_base:local -f base/Dockerfile .
 
-docker build -t unity3d_hub:local -f hub/Dockerfile --build-arg baseImage=unity3d_base:local .
-
 docker build -t unity3d:$version-$module -f editor/Dockerfile \
   --build-arg baseImage=unity3d_base:local \
-  --build-arg hubImage=unity3d_hub:local \
   --build-arg version=$version \
   --build-arg changeSet=$changeSet \
   --build-arg module=$module \

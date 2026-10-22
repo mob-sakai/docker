@@ -1,11 +1,11 @@
 # Build all images for latest release (serverless)
 # ========================================================
 #
-# - Check out latest release and build `base` and `hub`.
+# - Check out the latest release and build the base image.
 #   - The existed image tag building will be skipped.
 #   - Use `skopeo` to check for the existence of tags.
-# - After `base` and `hub` images are built, the workflow to build the editor image will be dispatched on a per-module basis for readability.
-#   * Build All (build base and hub)
+# - After the base image is built, dispatch Editor image workflows per module for readability.
+#   * Build All (build base image)
 #     * (dispatch) -> Build Editor (base, [2018.3.1f1, 2018.3.2f1, ...])
 #     * (dispatch) -> Build Editor (linux-il2cpp, [2018.3.1f1, 2018.3.2f1, ...])
 #     ...
@@ -41,7 +41,7 @@ on:
 jobs:
   build:
     if: github.event_name != 'issue_comment' || startsWith(github.event.comment.body, '/build-all')
-    name: 🛠️ Build base and hub
+    name: 🛠️ Build base
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -142,37 +142,6 @@ jobs:
           push: true
           labels: ${{ steps.base-meta.outputs.labels }}
           tags: ${{ steps.base-meta.outputs.tags }}
-
-      ###########################
-      #        Build hub        #
-      ###########################
-      - name: 🔍 (hub) Check whether to build
-        id: setup_hub
-        run: |
-          [ -n "`skopeo list-tags docker://ghcr.io/mob-sakai/unity3d_hub | jq -r '.Tags[]' | grep -x '${{ steps.latest.outputs.release }}' || :`" ] && echo "skip=true" | tee $GITHUB_OUTPUT || :
-      - name: ⚙️ (hub) Setup metadata
-        if: steps.setup_hub.outputs.skip != 'true'
-        uses: docker/metadata-action@v6
-        id: hub-meta
-        with:
-          images: ghcr.io/mob-sakai/unity3d_hub
-          labels: |
-            org.opencontainers.image.vendor=${{ github.repository_owner }}
-            org.opencontainers.image.documentation=${{ github.event.repository.html_url }}
-          tags: type=semver,pattern={{raw}},value=${{ steps.latest.outputs.release }}
-      - name: 🛠️ (hub) Build and push
-        if: steps.setup_hub.outputs.skip != 'true'
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: hub/Dockerfile
-          build-args: |
-            baseImage=ghcr.io/mob-sakai/unity3d_base:${{ steps.latest.outputs.release }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          push: true
-          labels: ${{ steps.hub-meta.outputs.labels }}
-          tags: ${{ steps.hub-meta.outputs.tags }}
 
   ###########################
   #  Dispatch build editor  #

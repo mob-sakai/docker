@@ -204,7 +204,7 @@ All workflows will be run automatically.
 | Workflow       | Description                                                  | Trigger                                                                         |
 | -------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------- |
 | `Release`      | Release new tag.                                             | - Pushed commits (include feat or fix) on `main` branch                         |
-| `Build All`    | Build base/hub images and dispatch `Build Editor` workflows. | - Released a new version<br>- Scheduled (daily)<br>- New Unity version released |
+| `Build All`    | Build the base image and dispatch `Build Editor` workflows.  | - Released a new version<br>- Scheduled (daily)<br>- New Unity version released |
 | `Build Editor` | Build editor images with a specific Unity module             | - Dispatched from `Build All`                                                   |
 
 <br><br>
